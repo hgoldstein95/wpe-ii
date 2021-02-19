@@ -9,7 +9,14 @@
 \usepackage{color}
 \usepackage{xcolor}
 
-\newcommand{\outline}[1]{{\color{gray}{#1}}}
+\newif\ifdraft\draftfalse
+
+\newcommand{\outline}[1]{
+  \ifdraft
+  {\color{gray}{#1}}
+  \fi
+}
+
 \newcommand{\ifThenElse}[3]{\textsf{if}~#1~\textsf{then}~#2~\textsf{else}~#3}
 \newcommand{\letIn}[3]{\textsf{let}~#1 = #2~\textsf{in}~#3}
 \newcommand{\shift}[2]{\textsf{shift}~#1~\textsf{in}~#2}
@@ -70,22 +77,22 @@
 \renewcommand{\shortauthors}{Goldstein}
 
 \begin{abstract}
-  The control operators {\tt shift} and {\tt reset} are rooted in the well-studied field of {\em
-  continuations}. The functions {\tt return} and {\tt join} define the rich structure of {\em
-  monads}. On their face, these abstractions have very little to do with one another, but beneath
-  the surface they are actually closely related. In this report I explore seminal work on
-  continuations and monads as programming abstractions and show how both enable pure programming
-  in a direct style. I show an informal bijection: monads can implement control operators, and
-  control operators can implement a number of common monads. Finally, I connect the meta-theories
-  of continuations and monads and detail their uses in denotational semantics.
+  Around the year 1990, two programming abstractions were introduced: {\em delimited
+  continuations} and {\em monads}. \citet{danvy1989functional} explored delimited continuations
+  as a principled way of manipulating program contexts as first-class functions.
+  \citet{wadler1990comprehending} popularized monads as a tool for simulating effects in a pure
+  language. Though they seem to have little to do with one-another, delimited continuations and
+  monads actually have a lot in common: they can solve many of the same programming problems, and
+  their meta-theories are surprisingly compatible. This report re-contextualizes those early 90's
+  papers and explores the commonalities between monads and delimited continuations.
 \end{abstract}
 
 \maketitle
 
 \section{Introduction} \label{sec:introduction}
-Programmers need to express their ideas as succinctly and clearly as possible. Such clarity often
-relies on abstractions that allow complex control flow to be written in a {\em direct style}.
-Consider the following programs that appear to be stateful:
+Programming languages research focuses heavily on abstractions. Abstractions enable programmers
+to write code that is succinct and clear while hiding implementation details. Consider the
+following programs that appear to be stateful:
 \begin{figure}[H]
 \centering
 \begin{subfigure}{.5\textwidth}
@@ -119,36 +126,40 @@ Consider the following programs that appear to be stateful:
 \Description[State Abstraction]{Code for manipulating state.}
 \label{fig:stateful-comps}
 \end{figure}
-\noindent Neither of these programs actually use references or other imperative
-features---they're both ``purely'' functional. The abstractions underlying {\tt get} and {\tt put}
-allow the programmer to think in terms of changing state without sacrificing the advantages of
-purity.
+\noindent Perhaps surprisingly, both of these programs are ``purely'' functional---they do not
+use references or other imperative features. The illusion of state is created by underlying
+abstractions that allow the programmer to think in terms of changing state without sacrificing
+the advantages of purity.
 
-The first example, written in Racket, uses {\em delimited continuations} to create the illusion
-of state. When evaluating an expression language, a continuation captures the "rest" of the
-computation; it is the context in which the current expression is executed. For example, when
-evaluating
-\[ \ifThenElse{x < 3}{10}{20} \]
-we start by computing $x < 3$. At that point, the rest of the computation,
+The first snippet, written in Racket, uses {\em delimited continuations} to implement a stateful
+API. A continuation is a first-class representation of the "rest" of a computation. For example,
+when evaluating the sub-expression ``$x < 3$'' in
+\[ \ifThenElse{x < 3}{10}{20}, \]
+the remaining {\em context} is
 \[ \ifThenElse{\_}{10}{20}, \]
-is the continuation. In {\em Functional Abstraction of Typed Contexts},
-\citet{danvy1989functional} present two operators for manipulating continuation contexts as
-first-class functions in the language: {\em shift} written ``$\shift{k}{e}$'' and {\em reset}
-written ``$\reset{e}$''. Reset delimits the scope of the current context---in the example above,
-we implicitly wrap the whole expression in a reset. The expression ``$\shift{k}{e}$''captures the
-current context as a function, $k$, and then executes $e$ in a fresh context. We can rewrite the
-above computation using shift and reset and observe the way shift and reset are interpreted.
+and the continuation, $k$, is
+\[ k = \lambdaE{b}{\ifThenElse{b}{10}{20}}. \]
+In {\em A Functional Abstraction of Typed Contexts}, \citet{danvy1989functional} present two
+operators for manipulating continuations: {\em shift} (written ``$\shift{k}{e}$'') and {\em
+reset} (written ``$\reset{e}$''). Reset delimits the scope of the current context---in the
+example above, we implicitly wrap the whole expression in a reset. The expression
+``$\shift{k}{e}$''captures the current context as a continuation, $k$, and then executes $e$ in a
+fresh context. We can use shift and reset to extract the continuation from above:
 \begin{align*}
   & \reset{\ifThenElse{(\shift{k}{k~(x < 3)})}{10}{20}} \\
   \rightarrow\ & \letIn{k}{(\lambdaE{b}{\ifThenElse{b}{10}{20}})}{k~(x < 3)}
 \end{align*}
-Reset delimits the context, in this case the whole ``$\textsf{if}$'' expression, and shift packages
-the continuation into the variable $k$ before immediately applying it. Since shift just applies it's
-continuation nothing has changed---the result will be the same as the expression above---but there
-is no reason for the shift body to be so simple. Clever uses of delimited continuations can build up
-complex control flow including implementing the state abstraction from our original example.
+Reset delimits the context, in this case the whole ``$\textsf{if}$'' expression, and shift
+packages the continuation into $k$. In this example the shift body just applies $k$, so nothing
+has changed---the result will be the same as the original expression. But the shift body can be
+anything. In particular, if $k$ is not used at all
+\[ \reset{\ifThenElse{(\shift{k}{x < 3})}{10}{20}} \]
+the result is essentially an {\em exception}: the ``$\textsf{if}$'' statement is thrown away and
+the result of the computation is just $x < 3$. Clever uses of delimited continuations like this
+can be used to build up complex control flow including the state abstraction from our original
+example.
 
-The second example simulates stateful computations using a {\em monad} in Haskell. Monads were
+The second snippet simulates stateful computations using a {\em monad} in Haskell. Monads were
 introduced to the programming languages literature by \citet{moggi1991notions}, but they were
 popularized by \citeauthor{wadler1990comprehending} in {\em Comprehending
 Monads}~\cite{wadler1990comprehending}. As a programming abstraction, monads generalize the
@@ -156,37 +167,44 @@ well-known idea of list comprehensions:
 \[
   [ (x,\,y) \mid x \leftarrow [1,\, 2] ;\ y \leftarrow [3,\, 4] ]^{\textsf{List}}
 \]
-In this case the monad is $\textsf{List}$ and the result is a Cartesian product of lists $[1,\,
-2]$ and $[3,\, 4]$, but the syntax can be used for other monads:
+This expression results in the Cartesian product of lists $[1,\, 2]$ and $[3,\, 4]$. Wadler observed
+that comprehension syntax can be used for monads other than $\textsf{List}$:
 \[
   [ y \mid x \leftarrow \textsf{thisMightFail}~() ;\ y \leftarrow \textsf{thisMightFailToo}~{x} ]^{\textsf{Maybe}}
 \]
-If either of the provided computations fail, the result of this expression will be $\nothing$,
-otherwise the result will be the final result of the overall computation. There are dozens of monads
-that programmers use in practice, each of which gives a different semantics to this comprehension
-syntax. One such monad, the $\textsf{State}$ monad, can be used to implement our running example.
+This monad, usually called $\textsf{Maybe}$, implements a form of exceptions: if either of the
+provided computations fail, the result of comprehension will be $\nothing$, otherwise the result
+will be the value stored in $y$. There are dozens of monads that programmers use in practice,
+each of which gives a different interpretation of comprehension syntax. One such monad,
+$\textsf{State}$, can be used to implement our running example.
 
-It is not immediately clear how manipulating continuations is related to re-interpreting
-comprehension syntax, but clearly there is a common thread between them. Both delimited
-continuations and monads can implement the state abstraction from above, non-deterministic
-computations, exceptions, and other complex programming techniques. This report will explore
-those commonalities in detail. I make three contributions after a brief discussion of common
-notation (\S \ref{sec:notation}):
+It is not immediately clear that manipulating continuations has anything to do with interpreting
+comprehension syntax. One would be forgiven for assuming that these ideas are largely orthogonal.
+But we have already seen that that delimited continuations and monads can be used to implement
+some of the same design patterns. Could there be more overlap? Yes! It turns out that that are
+many programming techniques, including state, exceptions, non-determinism, and more, that can be
+implemented using either delimited continuations or monads. Furthermore, continuations actually
+form a monad, and \citeauthor{wadler1990comprehending} shows that this fact can be exploited to
+to recover results from \citeauthor{danvy1989functional}.
+
+In this report I make three contributions, after a brief discussion of common notation
+(\S~\ref{sec:notation}):
 \begin{itemize}
   \item I summarize and re-contextualize two influential papers: {\em A Functional Abstraction of
-    Typed Contexts} by \citeauthor{danvy1989functional} (\S \ref{sec:danvy}) and {\em Comprehending
-    Monads} by \citeauthor{wadler1990comprehending} (\S \ref{sec:wadler}).\footnote{This is a
-    requirement of the WPE-II exam, but I hope that reformulating these results will still be
-    instructive.}
-  \item I show the many ways in which delimited continuations can implement common monadic
-    abstractions and conversely show that continuations can be captured as a monad
-    (\S \ref{sec:programming}).
-  \item I explore a fascinating meta-theoretic observation: by performing a monad-agnostic
-    transformation given by Wadler we can recover the extended continuation passing style
-    transformation presented by Danvy (\S \ref{sec:metatheory}).
+  Typed Contexts} by \citeauthor{danvy1989functional} (\S~\ref{sec:danvy}) and {\em Comprehending
+  Monads} by \citeauthor{wadler1990comprehending} (\S~\ref{sec:wadler}).\footnote{This is a
+  requirement of the WPE-II exam, but I hope that reformulating these results will still be
+  instructive.}
+  \item I show the many design patterns that can be implemented equally well by both delimited
+  continuations and monads, establishing a close relationship between the two language features
+  (\S~\ref{sec:patterns}).
+  \item I explore the {\em continuation monad} and show that by performing a monad-agnostic
+  transformation given by \citeauthor{wadler1990comprehending} we can recover the ``extended
+  continuation passing style'' transformation presented by \citeauthor{danvy1989functional}
+  (\S~\ref{sec:contmonad}).
 \end{itemize}
 I conclude with some remarks on the broader context in which these abstractions exist
-(\ref{sec:conclusion}).
+(\S~\ref{sec:conclusion}).
 
 \section{Notes on Notation} \label{sec:notation}
 
@@ -204,9 +222,9 @@ I conclude with some remarks on the broader context in which these abstractions 
 
 \section{{\em Comprehending Monads}} \label{sec:wadler}
 
-\section{Programming Overlap} \label{sec:programming}
+\section{Common Design Patterns} \label{sec:patterns}
 
-\section{Meta-Theory} \label{sec:metatheory}
+\section{The Continuation Monad} \label{sec:contmonad}
 
 \section{Conclusion} \label{sec:conclusion}
 
