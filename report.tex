@@ -1,4 +1,4 @@
-\documentclass[acmsmall, nonacm]{acmart}
+\documentclass[acmsmall, nonacm, screen]{acmart}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -6,8 +6,6 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{float}
-\usepackage{color}
-\usepackage{xcolor}
 
 \newif\ifdraft\draftfalse
 
@@ -25,15 +23,11 @@
 \newcommand{\just}[1]{\textsf{Just}~#1}
 \newcommand{\nothing}{\textsf{Nothing}}
 
-\definecolor{mygreen}{rgb}{0,0.6,0}
-\definecolor{mygray}{rgb}{0.5,0.5,0.5}
-\definecolor{mymauve}{rgb}{0.58,0,0.82}
-
 \lstset{ %
   backgroundcolor=\color{white},
-  commentstyle=\color{mygreen},
-  keywordstyle=\color{blue},
-  stringstyle=\color{mymauve},
+  commentstyle=\color{ACMGreen},
+  keywordstyle=\color{ACMDarkBlue},
+  stringstyle=\color{ACMPurple},
   basicstyle=\ttfamily
 }
 
@@ -167,8 +161,8 @@ well-known idea of list comprehensions:
 \[
   [ (x,\,y) \mid x \leftarrow [1,\, 2] ;\ y \leftarrow [3,\, 4] ]^{\textsf{List}}
 \]
-This expression results in the Cartesian product of lists $[1,\, 2]$ and $[3,\, 4]$. Wadler observed
-that comprehension syntax can be used for monads other than $\textsf{List}$:
+This expression results in the Cartesian product of lists ``$[1,\, 2]$'' and ``$[3,\, 4]$.''
+Wadler observed that comprehension syntax can be used for monads other than $\textsf{List}$:
 \[
   [ y \mid x \leftarrow \textsf{thisMightFail}~() ;\ y \leftarrow \textsf{thisMightFailToo}~{x} ]^{\textsf{Maybe}}
 \]
