@@ -133,12 +133,13 @@ the remaining {\em context} is
 \[ \ifThenElse{\_}{10}{20}, \]
 and the continuation, $k$, is
 \[ k = \lambdaE{b}{\ifThenElse{b}{10}{20}}. \]
-In {\em A Functional Abstraction of Typed Contexts}, \citet{danvy1989functional} present two
-operators for manipulating continuations: {\em shift} (written ``$\shift{k}{e}$'') and {\em
-reset} (written ``$\reset{e}$''). Reset delimits the scope of the current context---in the
-example above, we implicitly wrap the whole expression in a reset. The expression
-``$\shift{k}{e}$''captures the current context as a continuation, $k$, and then executes $e$ in a
-fresh context. We can use shift and reset to extract the continuation from above:
+The continuation captures the context as a function. In {\em A Functional Abstraction of Typed
+Contexts}, \citet{danvy1989functional} present two operators for manipulating continuations: {\em
+shift} (written ``$\shift{k}{e}$'') and {\em reset} (written ``$\reset{e}$''). Reset delimits the
+scope of the current context---in the example above, we implicitly wrap the whole expression in a
+reset. The expression ``$\shift{k}{e}$''captures the current context as a continuation, $k$, and
+then executes $e$ in a fresh context. We can use shift and reset to extract the continuation from
+above:
 \begin{align*}
   & \reset{\ifThenElse{(\shift{k}{k~(x < 3)})}{10}{20}} \\
   \rightarrow\ & \letIn{k}{(\lambdaE{b}{\ifThenElse{b}{10}{20}})}{k~(x < 3)}
@@ -148,10 +149,9 @@ packages the continuation into $k$. In this example the shift body just applies 
 has changed---the result will be the same as the original expression. But the shift body can be
 anything. In particular, if $k$ is not used at all
 \[ \reset{\ifThenElse{(\shift{k}{x < 3})}{10}{20}} \]
-the result is essentially an {\em exception}: the ``$\textsf{if}$'' statement is thrown away and
-the result of the computation is just $x < 3$. Clever uses of delimited continuations like this
-can be used to build up complex control flow including the state abstraction from our original
-example.
+the result is essentially an {\em exception}: the ``$\textsf{if}$'' is thrown away and the result
+of the computation is just $x < 3$. Clever uses of delimited continuations like this can be used
+to build up complex control flow including the state abstraction from our original example.
 
 The second snippet simulates stateful computations using a {\em monad} in Haskell. Monads were
 introduced to the programming languages literature by \citet{moggi1991notions}, but they were
@@ -162,7 +162,8 @@ well-known idea of list comprehensions:
   [ (x,\,y) \mid x \leftarrow [1,\, 2] ;\ y \leftarrow [3,\, 4] ]^{\textsf{List}}
 \]
 This expression results in the Cartesian product of lists ``$[1,\, 2]$'' and ``$[3,\, 4]$.''
-Wadler observed that comprehension syntax can be used for monads other than $\textsf{List}$:
+Wadler observed that comprehension syntax can be to program with any monad (not just
+$\textsf{List}$):
 \[
   [ y \mid x \leftarrow \textsf{thisMightFail}~() ;\ y \leftarrow \textsf{thisMightFailToo}~{x} ]^{\textsf{Maybe}}
 \]
