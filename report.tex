@@ -15,6 +15,12 @@
   \fi
 }
 
+\newcommand\doverline[1]{%
+  \setbox0=\hbox{$\overline{#1}$}%
+  \ht0=\dimexpr\ht0-.30ex\relax% CHANGE .15 TO AFFECT SPACING
+  \overline{\copy0}%
+}
+
 \newcommand{\ifThenElse}[3]{\textsf{if}~#1~\textsf{then}~#2~\textsf{else}~#3}
 \newcommand{\letIn}[3]{\textsf{let}~#1 = #2~\textsf{in}~#3}
 \newcommand{\shift}[2]{\textsf{shift}~#1~\textsf{in}~#2}
@@ -22,6 +28,9 @@
 \newcommand{\lambdaE}[2]{\lambda #1.\, #2}
 \newcommand{\just}[1]{\textsf{Just}~#1}
 \newcommand{\nothing}{\textsf{Nothing}}
+\newcommand{\map}[3]{\textsf{map}^{\textsf{#1}}~#2~#3}
+\newcommand{\unit}[2]{\textsf{unit}^{\textsf{#1}}~#2}
+\newcommand{\join}[2]{\textsf{join}^{\textsf{#1}}~#2}
 
 \lstset{ %
   backgroundcolor=\color{white},
@@ -86,7 +95,7 @@
 \section{Introduction} \label{sec:introduction}
 % Do I need to cast a broader net here? Something like:
 % Delimited continuations and monads are classical ideas in PL literature. They are integral to the
-% way we define program semantics as well as to the way we abstract code. ...
+% way we define program semantics as well as to the way we abstract code. ..asking about .
 Programming languages research focuses heavily on abstractions. Abstractions enable programmers
 to write code that is succinct and clear while hiding implementation details. Consider the
 following programs that appear to be stateful:
@@ -223,6 +232,41 @@ I conclude with some remarks on the broader context in which these abstractions 
 \section{Common Design Patterns} \label{sec:patterns}
 
 \section{The Continuation Monad} \label{sec:contmonad}
+So far we have seen a number of examples of monads, but \citeauthor{wadler1990comprehending}
+actually discusses one more: the {\em continuation monad}. Given a result type, $\rho$, the
+continuation monad has operations:
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{type Cont}$~$\alpha$ & $=$ & $(\alpha \to \rho) \to \rho$ \\
+    $\map{Cont}{f}{\overline{x}}$ & $=$ & $\lambdaE{\kappa}{\overline{x}~(\lambdaE{x}{\kappa~(f~x)})}$ \\
+    $\unit{Cont}{x}$ & $=$ & $\lambdaE{\kappa}{\kappa~x}$ \\
+    $\join{Cont}{\doverline{x}}$ & $=$ &
+      $\lambdaE{\kappa}{\doverline{x}~(\lambdaE{\overline{x}}{\overline{x}~\kappa})}$
+  \end{tabular}
+\end{center}
+Programs written using the continuation monad are automatically in a continuation-passing style:
+sequencing
+\[ [(x, y) \mid x \leftarrow \overline{x};\ y \leftarrow \overline{y}]^{\textsf{Cont}} \]
+expands to
+\[ \lambdaE{\kappa}{\overline{x}~(\lambdaE{x}{\overline{y}~(\lambdaE{y}{\kappa~(x,\, y)})})}, \]
+which is precisely the way a tuple of expressions would be evaluated in CPS.
+
+You might see where this is going: we can implement the delimited continuation operators, shift and
+reset, as operations in the continuation monad! We can define
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{shift}$~$f$ & $=$ & $\lambdaE{\kappa}{f~(\lambdaE{x}{\lambdaE{\kappa'}{\kappa'~(\kappa~x)}})~(\lambdaE{x}{x})}$ \\
+    $\textsf{reset}$~$\overline{x}$ & $=$ & $\lambdaE{\kappa}{\kappa~(\overline{x}~(\lambdaE{x}{x}))}$
+  \end{tabular}
+\end{center}
+and then we can implement examples from \citeauthor{danvy1989functional} like
+\[
+  [x + y \mid x \leftarrow [1];\ y \leftarrow \textsf{reset}~[u + v \mid u \leftarrow [10];\ v \leftarrow \textsf{shift}(\lambdaE{k}{[b \mid a \leftarrow k~100;\ b \leftarrow k~a]})]]. \\
+\]
+Admittedly, this is not as terse as
+\[ 1 + \reset{10 + \shift{k}{k~(k~100)}}, \]
+but it says and does the same thing, and critically neither version relies on manually managing
+continuation parameters.
 
 \section{Conclusion} \label{sec:conclusion}
 
