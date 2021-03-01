@@ -21,9 +21,10 @@
   \overline{\copy0}%
 }
 
-\newcommand{\ifThenElse}[3]{\textsf{if}~#1~\textsf{then}~#2~\textsf{else}~#3}
-\newcommand{\letIn}[3]{\textsf{let}~#1 = #2~\textsf{in}~#3}
-\newcommand{\shift}[2]{\textsf{shift}~#1~\textsf{in}~#2}
+\newcommand{\ifThenElse}[3]{\textsf{\color{ACMDarkBlue}if}~#1~\textsf{\color{ACMDarkBlue}then}~#2~\textsf{\color{ACMDarkBlue}else}~#3}
+\newcommand{\caseOf}[2]{\textsf{\color{ACMDarkBlue} case}~#1~\textsf{\color{ACMDarkBlue}of}~\{~#2~\}}
+\newcommand{\letIn}[3]{\textsf{\color{ACMDarkBlue}let}~#1 = #2~\textsf{\color{ACMDarkBlue}in}~#3}
+\newcommand{\shift}[2]{\textsf{\color{ACMDarkBlue}shift}~#1~\textsf{\color{ACMDarkBlue}in}~#2}
 \newcommand{\reset}[1]{\langle #1 \rangle}
 \newcommand{\lambdaE}[2]{\lambda #1.\, #2}
 \newcommand{\just}[1]{\textsf{Just}~#1}
@@ -270,7 +271,7 @@ To be precise,
 \begin{center}
   \begin{tabular}{lll}
     $\join{List}{\doverline{x}}$ & $=$ & $\textsf{flatten}~\doverline{x}$ \\
-    $\join{Maybe}{\doverline{x}}$ & $=$ & $\textsf{case}~\doverline{x}~\textsf{of}~\{~\textsf{Just}~(\textsf{Just}~x) \to \textsf{Just}~x;\ \_ \to \textsf{Nothing}~\}$
+    $\join{Maybe}{\doverline{x}}$ & $=$ & $\caseOf{\doverline{x}}{\textsf{Just}~(\textsf{Just}~x) \to \textsf{Just}~x;\ \_ \to \textsf{Nothing}}$
   \end{tabular}
 \end{center}
 
@@ -345,17 +346,77 @@ otherwise the result is a single \textsf{Just} wrapped around the final result.
 
 \subsection{Examples of Monads}
 
+In this section I list of the most common and useful monads that Wadler points out. I have mostly
+left out types up until this point for simplicity, but they are occasionally instructive for
+understanding the structure of a given monad.
+
 \subsubsection{List and Maybe}
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{type List}$~$\alpha$ & $=$ & $\textsf{Nil} \mid \textsf{Cons}~\alpha~(\textsf{List}~\alpha)$ \\
+    $\map{List}{f}{\overline{x}}$ & $=$ & $\caseOf{\overline{x}}{\textsf{Nil} \to \textsf{Nil};\ \textsf{Cons}~y~\overline{y} \to \textsf{Cons}~(f~y)~(\map{List}{f}{\overline{y}})}$ \\
+    $\unit{List}{x}$ & $=$ & $\textsf{singleton}~x$ \\
+    $\join{List}{\doverline{x}}$ & $=$ & $\textsf{flatten}~\doverline{x}$
+  \end{tabular}
+\end{center}
 
-\subsubsection{Identity}
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{type Maybe}$~$\alpha$ & $=$ & $\textsf{Nothing} \mid \textsf{Just}~\alpha$ \\
+    $\map{Maybe}{f}{\overline{x}}$ & $=$ & $\caseOf{\overline{x}}{\textsf{Nothing} \to \textsf{Nothing};\ \textsf{Just}~y \to \textsf{Just}~(f~y)}$ \\
+    $\unit{Maybe}{x}$ & $=$ & $\textsf{Just}~x$ \\
+    $\join{Maybe}{\doverline{x}}$ & $=$ & $\caseOf{\doverline{x}}{\textsf{Just}~(\textsf{Just}~x) \to \textsf{Just}~x;\ \_ \to \textsf{Nothing}}$
+  \end{tabular}
+\end{center}
 
-\subsubsection{Strictness}
+\subsubsection{Identity and Strictness}
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{type Id}$~$\alpha$ & $=$ & $\alpha$ \\
+    $\map{Id}{f}{\overline{x}}$ & $=$ & $f~\overline{x}$ \\
+    $\unit{Id}{x}$ & $=$ & $x$ \\
+    $\join{Id}{\doverline{x}}$ & $=$ & $\doverline{x}$
+  \end{tabular}
+\end{center}
+
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{type Str}$~$\alpha$ & $=$ & $\alpha$ \\
+    $\map{Str}{f}{\overline{x}}$ & $=$ & $\ifThenElse{\overline{x} \neq \bot}{f~\overline{x}}{\bot}$ \\
+    $\unit{Str}{x}$ & $=$ & $x$ \\
+    $\join{Str}{\doverline{x}}$ & $=$ & $\doverline{x}$
+  \end{tabular}
+\end{center}
 
 \subsubsection{State}
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{type State}$~$\alpha$ & $=$ & $\sigma \to (\alpha,\, \sigma)$ \\
+    $\map{State}{f}{\overline{x}}$ & $=$ & $\lambdaE{s}{\letIn{(x,\, s')}{\overline{x}~s}{(f~x,\, s')}}$ \\
+    $\unit{State}{x}$ & $=$ & $\lambdaE{s}{(x,\, s)}$ \\
+    $\join{State}{\doverline{x}}$ & $=$ & $\lambdaE{s}{\letIn{(\overline{x},\, s')}{\doverline{x}~s}{\overline{x}~s'}}$
+  \end{tabular}
+\end{center}
 
 \subsubsection{Reader}
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{type Reader}$~$\alpha$ & $=$ & $\rho \to \alpha$ \\
+    $\map{Reader}{f}{\overline{x}}$ & $=$ & $\lambdaE{r}{f~(\overline{x}~r)}$ \\
+    $\unit{Reader}{x}$ & $=$ & $\lambdaE{r}{x}$ \\
+    $\join{Reader}{\doverline{x}}$ & $=$ & $\lambdaE{r}{(\doverline{x}~r)~r}$
+  \end{tabular}
+\end{center}
 
 \subsubsection{Parser}
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{type Parser}$~$\alpha$ & $=$ & $\textsf{String} \to \textsf{List}~(\alpha,\, \textsf{String})$ \\
+    $\map{Parser}{f}{\overline{x}}$ & $=$ & $\lambdaE{i}{[(f~x,\, i') \mid (x,\, i') \leftarrow \overline{x}~i]^{\textsf{List}}}$ \\
+    $\unit{Parser}{x}$ & $=$ & $\lambdaE{i}{[(x, i)]^{\textsf{List}}}$ \\
+    $\join{Parser}{\doverline{x}}$ & $=$ & $\lambdaE{i}{[(x,\, i'') \mid (\overline{x},\, i') \leftarrow \doverline{x}~i;\ (x,\ i'') \leftarrow \overline{x}~i']^{\textsf{List}}}$
+  \end{tabular}
+\end{center}
 
 \subsection{Translation}
 
