@@ -6,8 +6,11 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{float}
+\usepackage{xcolor}
 
 \newif\ifdraft\drafttrue
+
+\definecolor{green}{HTML}{298a33}
 
 \newcommand{\outline}[1]{
   \ifdraft
@@ -25,6 +28,7 @@
 \newcommand{\caseOf}[2]{\textsf{\color{ACMDarkBlue} case}~#1~\textsf{\color{ACMDarkBlue}of}~\{~#2~\}}
 \newcommand{\letIn}[3]{\textsf{\color{ACMDarkBlue}let}~#1 = #2~\textsf{\color{ACMDarkBlue}in}~#3}
 \newcommand{\shift}[2]{\textsf{\color{ACMDarkBlue}shift}~#1~\textsf{\color{ACMDarkBlue}in}~#2}
+\newcommand{\callcc}[2]{\textsf{\color{ACMDarkBlue}call/cc}~#1~\textsf{\color{ACMDarkBlue}in}~#2}
 \newcommand{\reset}[1]{\langle #1 \rangle}
 \newcommand{\lambdaE}[2]{\lambda #1.\, #2}
 \newcommand{\just}[1]{\textsf{Just}~#1}
@@ -32,6 +36,8 @@
 \newcommand{\map}[3]{\textsf{map}^{\textsf{#1}}~#2~#3}
 \newcommand{\unit}[2]{\textsf{unit}^{\textsf{#1}}~#2}
 \newcommand{\join}[2]{\textsf{join}^{\textsf{#1}}~#2}
+\newcommand{\cps}[1]{\mathcal{C}\llbracket #1 \rrbracket}
+\newcommand{\stringE}[1]{\textsf{\color{green} ``#1''}}
 
 \lstset{ %
   backgroundcolor=\color{white},
@@ -81,14 +87,14 @@
 \renewcommand{\shortauthors}{Goldstein}
 
 \begin{abstract}
-  Around the year 1990, two programming abstractions were introduced: {\em delimited
-  continuations} and {\em monads}. \citet{danvy1989functional} explored delimited continuations
-  as a principled way of manipulating program contexts as first-class functions.
-  \citet{wadler1990comprehending} popularized monads as a tool for simulating effects in a pure
-  language. Though they seem to have little to do with one-another, delimited continuations and
-  monads actually have a lot in common: they can solve many of the same programming problems, and
-  their meta-theories are surprisingly compatible. This report re-contextualizes those early 90's
-  papers and explores the commonalities between monads and delimited continuations.
+  In 1990, two programming abstractions were introduced: {\em delimited continuations} and {\em
+  monads}. \citet{danvy1989functional} explored delimited continuations as a principled way of
+  manipulating program contexts as first-class functions. \citet{wadler1990comprehending}
+  popularized monads as a tool for simulating effects in a pure language. Though they seem to
+  have little to do with one-another, delimited continuations and monads actually have a lot in
+  common: they can solve many of the same programming problems, and their meta-theories are
+  surprisingly compatible. This report re-contextualizes those early 90's papers and explores the
+  commonalities between monads and delimited continuations.
 \end{abstract}
 
 \maketitle
@@ -146,10 +152,10 @@ the remaining {\em context} is
 \[ \ifThenElse{\_}{10}{20}, \]
 and the continuation, $k$, is
 \[ k = \lambdaE{b}{\ifThenElse{b}{10}{20}}. \]
-The continuation captures the context as a function. In {\em A Functional Abstraction of Typed
-Contexts}, \citet{danvy1989functional} present two operators for manipulating continuations: {\em
-shift} (written ``$\shift{k}{e}$'') and {\em reset} (written ``$\reset{e}$''). Reset delimits the
-scope of the current context---in the example above, we implicitly wrap the whole expression in a
+The continuation captures the context as a function. In {\em Abstracting Control},
+\citet{danvy1990abstracting} present two operators for manipulating continuations: {\em shift}
+(written ``$\shift{k}{e}$'') and {\em reset} (written ``$\reset{e}$''). Reset delimits the scope
+of the current context---in the example above, we implicitly wrap the whole expression in a
 reset. The expression ``$\shift{k}{e}$''captures the current context as a continuation, $k$, and
 then executes $e$ in a fresh context. We can use shift and reset to extract the continuation from
 above:
@@ -198,11 +204,10 @@ to recover results from \citeauthor{danvy1989functional}.
 In this report I make three contributions, after a brief discussion of common notation
 (\S~\ref{sec:notation}):
 \begin{itemize}
-  \item I summarize and re-contextualize two influential papers: {\em A Functional Abstraction of
-  Typed Contexts} by \citeauthor{danvy1989functional} (\S~\ref{sec:danvy}) and {\em Comprehending
-  Monads} by \citeauthor{wadler1990comprehending} (\S~\ref{sec:wadler}).\footnote{This is a
-  requirement of the WPE-II exam, but I hope that reformulating these results will still be
-  instructive.}
+  \item I summarize and re-contextualize two influential papers: {\em Abstracting Control} by
+  \citeauthor{danvy1990abstracting} (\S~\ref{sec:danvy}) and {\em Comprehending Monads} by
+  \citeauthor{wadler1990comprehending} (\S~\ref{sec:wadler}).\footnote{This is a requirement of
+  the WPE-II exam, but I hope that reformulating these results will still be instructive.}
   \item I show the many design patterns that can be implemented equally well by both delimited
   continuations and monads, establishing a close relationship between the two language features
   (\S~\ref{sec:patterns}).
@@ -229,7 +234,50 @@ I conclude with some remarks on the broader context in which these abstractions 
 \end{itemize}
 }
 
-\section{{\em A Functional Abstraction of Typed Contexts}} \label{sec:danvy}
+\section{{\em Abstracting Control}} \label{sec:danvy}
+
+\citeauthor{danvy1990abstracting} begin their discussion of delimited continuations by exploring
+the standard {\em continuation-passing style} or CPS translation. Here is the translation,
+$\cps{\cdot}$, for our basic lambda calculus with Booleans and if-statements:
+\begin{align*}
+  \cps{x} &= \lambdaE{\kappa}{\kappa~x} \\
+  \cps{\lambdaE{x}{e}} &= \lambdaE{\kappa}{\kappa~(\lambdaE{x}{\cps{e}})} \\
+  \cps{e_1~e_2} &= \lambdaE{\kappa}{\cps{e_1}~(\lambdaE{f}{\cps{e_2}~(\lambdaE{x}{f~x~\kappa})})} \\
+  \cps{\textsf{\color{ACMDarkBlue}true}} &= \lambdaE{\kappa}{\kappa~\textsf{\color{ACMDarkBlue} true}} \\
+  \cps{\ifThenElse{e_1}{e_2}{e_3}} &= \lambdaE{\kappa}{\cps{e_1}~(\lambdaE{b}{\ifThenElse{b}{\cps{e_2}~\kappa}{\cps{e_3}~\kappa}})}
+\end{align*}
+Note how evaluation order is made explicit---this CPS translation is clearly call-by-value, since
+in the rule for application,
+\[ \cps{e_1~e_2} = \lambdaE{\kappa}{\cps{e_1}~(\lambdaE{f}{\cps{e_2}~(\lambdaE{x}{f~x~\kappa})})} \]
+both arguments are evaluated before the application is finally computed. The CPS translation is a
+valuable tool for compilers and interpreters, where more explicit control flow often simplifies
+other considerations.
+
+Prior to this work, researchers had already considered language-level abstractions for working
+with continuations. The most famous, known as ``call with current continuation,'' or simply
+\textsf{\color{ACMDarkBlue} call/cc} can added as an operator in our source language and
+implemented as an extension to the CPS translation:
+\[ \cps{\callcc{k}{e}} = (\lambdaE{\kappa}{\cps{e}~\kappa})[k \mapsto \lambdaE{x}{\lambdaE{\kappa'}{\kappa~x}}] \]
+where ``$e[x \mapsto v]$'' means $e$ with $v$ substituted for free instances of $x$. The
+\textsf{\color{ACMDarkBlue} call/cc} operator is extremely powerful, allowing the programmer to
+arbitrarily pause and resume evaluation as they see fit. For example,
+\[ \callcc{k}{1} \]
+throws an exception with the value $1$ and
+\[ \callcc{k}{(\textsf{\color{ACMDarkBlue} print}~\stringE{foo};\ k~10)} \]
+pauses the computation, prints ``foo'', and then resumes computation with the value 10.
+Unfortunately, many have said that \textsf{\color{ACMDarkBlue} call/cc} is {\em too} powerful.
+Consider the popular Yin-Yang Puzzle:
+\begin{align*}
+& \textsf{\color{ACMDarkBlue} let}\ \textsf{yin}\ =\ (\lambdaE{c}{(\textsf{\color{ACMDarkBlue} print}~\stringE{@};\ c)})~(\callcc{k}{k})~\textsf{\color{ACMDarkBlue} in} \\
+& \textsf{\color{ACMDarkBlue} let}\ \textsf{yang}\ =\ (\lambdaE{c}{(\textsf{\color{ACMDarkBlue} print}~\stringE{*};\ c)})~(\callcc{k}{k})~\textsf{\color{ACMDarkBlue} in} \\
+& \textsf{yin}~\textsf{yang}
+\end{align*}
+What does this confusing mess of continuations do? Apparently it counts indefinitely in a unary
+representation, printing
+\[ \stringE{@*@**@***@****@*****...}, \]
+but it is extremely difficult to understand exactly why that is.
+
+\subsection{Delimited Continuations}
 
 \section{{\em Comprehending Monads}} \label{sec:wadler}
 
