@@ -313,7 +313,7 @@ represents the Cartesian product of $\overline{x}$ and $\overline{y}$ in list-co
 \[ \{(x, y) \mid x \in X \wedge y \in Y\} \]
 represents the Cartesian product of $X$ and $Y$ in standard mathematical notation.
 
-Wadler starts off by adding a formal syntax for list comprehensions to our running lambda calculus:
+Wadler starts off by adding a formal syntax for list comprehensions to a standard lambda calculus:
 \begin{align*}
  e &\Coloneqq ... \mid [e \mid q] \\
  q &\Coloneqq \Lambda \mid x \leftarrow e \mid (q_1;\ q_2)
@@ -344,13 +344,13 @@ rewriting a bit) results in
 which has the semantics we expect: if either computation fails the final result is \nothing\,
 otherwise the result is a single \textsf{Just} wrapped around the final result.
 
-\subsection{Examples of Monads}
+\subsection{Examples of Monads} \label{sec:monad-examples}
 
-In this section I list of the most common and useful monads that Wadler points out. I have mostly
-left out types up until this point for simplicity, but they are occasionally instructive for
-understanding the structure of a given monad.
+In this section I list of the most common and useful monads that Wadler points out.
 
 \subsubsection{List and Maybe}
+The first two monads have been running examples in this section, so I will not spend much time on
+them here. Here is the full definition of the list monad
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{type List}$~$\alpha$ & $=$ & $\textsf{Nil} \mid \textsf{Cons}~\alpha~(\textsf{List}~\alpha)$ \\
@@ -359,7 +359,7 @@ understanding the structure of a given monad.
     $\join{List}{\doverline{x}}$ & $=$ & $\textsf{flatten}~\doverline{x}$
   \end{tabular}
 \end{center}
-
+and the maybe monad
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{type Maybe}$~$\alpha$ & $=$ & $\textsf{Nothing} \mid \textsf{Just}~\alpha$ \\
@@ -368,8 +368,10 @@ understanding the structure of a given monad.
     $\join{Maybe}{\doverline{x}}$ & $=$ & $\caseOf{\doverline{x}}{\textsf{Just}~(\textsf{Just}~x) \to \textsf{Just}~x;\ \_ \to \textsf{Nothing}}$
   \end{tabular}
 \end{center}
+The type definitions are informal and based loosely on Haskell's algebraic data type syntax.
 
 \subsubsection{Identity and Strictness}
+The simplest possible monad is the identity functor.
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{type Id}$~$\alpha$ & $=$ & $\alpha$ \\
@@ -378,7 +380,17 @@ understanding the structure of a given monad.
     $\join{Id}{\doverline{x}}$ & $=$ & $\doverline{x}$
   \end{tabular}
 \end{center}
+This monad is almost not worth mentioning, but it does have one cute use-case: comprehension
+syntax for the identity monad subsumes \textsf{\color{ACMDarkBlue} let} binding. Rather than
+write
+\begin{center}
+  $\letIn{x}{e_1}{e_2}$ \hspace{5mm} we can write \hspace{5mm} $[e_2 \mid x \leftarrow e_1]^{\textsf{Id}}$.
+\end{center}
+There is no real reason to prefer this syntax, so I will continue to use
+$\textsf{\color{ACMDarkBlue} let}$, but it is a fun observation.
 
+A slight variation on the identity monad, the {\em strictness} monad, does actually have some
+interesting uses.
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{type Str}$~$\alpha$ & $=$ & $\alpha$ \\
@@ -387,8 +399,14 @@ understanding the structure of a given monad.
     $\join{Str}{\doverline{x}}$ & $=$ & $\doverline{x}$
   \end{tabular}
 \end{center}
+The only difference here is the implementation of $\textsf{map}$---the strictness monad enforces
+call-by-value application of the function $f$. In a call-by-name language with divergence, the
+strictness monad provides a convenient syntax for controlling evaluation order.
 
 \subsubsection{State}
+Another monad we have already seen is the \textsf{State} monad. The state monad makes it possible
+to write code that {\em looks} stateful, even though under the hood there is a state parameter
+being passed around. Assuming some fixed state type, $\sigma$, the state monad is defined as:
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{type State}$~$\alpha$ & $=$ & $\sigma \to (\alpha,\, \sigma)$ \\
@@ -397,8 +415,30 @@ understanding the structure of a given monad.
     $\join{State}{\doverline{x}}$ & $=$ & $\lambdaE{s}{\letIn{(\overline{x},\, s')}{\doverline{x}~s}{\overline{x}~s'}}$
   \end{tabular}
 \end{center}
+As with many monads, the real magic comes with some auxiliary operations. In this case, defining
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{get}$ & $=$ & $\lambdaE{s}{(s,\, s)}$ \\
+    $\textsf{put}~s'$ & $=$ & $\lambdaE{s}{(x,\, s')}$
+  \end{tabular}
+\end{center}
+gives us everything we need to implement the example from the introduction:
+\[ [k \mid i \leftarrow \textsf{get};\ \_ \leftarrow \textsf{put}~(i + 3);\ j \leftarrow \textsf{get};\ \_ \leftarrow \textsf{put}~(j * 7);\ k \leftarrow \textsf{get}]^{\textsf{State}} \]
+This is a good time to mention that modern languages with monads use a variation of Wadler's
+comprehension syntax called ``do-notation.'' The \textsf{do} from the Haskell example in Section
+\ref{sec:introduction},
+\[ \textsf{\color{ACMDarkBlue} do}\ \{\ i \leftarrow \textsf{get};\ \textsf{put}~(i + 3);\ j \leftarrow \textsf{get};\ \textsf{put}~(j * 7);\ \textsf{get}\ \}, \]
+has two ergonomic optimizations. First, the whole expression evaluates to the final qualifier in
+the list, which often saves a few characters, and second bare expressions are allowed as
+qualifiers. These facts together mean that do-notation is a bit easier to use than Wadler's
+syntax, even if it is morally quite similar. I discuss a bit more about the state of the art
+in Section \ref{sec:conclusion}.
 
 \subsubsection{Reader}
+(Wadler calls this {\em State Reader}, but modern languages almost exclusively drop the word
+``state'' and just call this monad ``reader.'') The \textsf{Reader} monad is a simplification of
+the \textsf{State} monad, and arose when Wadler realized some parts of a \textsf{State}-monad
+computation do not actually change the state (and in fact they {\em should} not).
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{type Reader}$~$\alpha$ & $=$ & $\rho \to \alpha$ \\
@@ -407,8 +447,42 @@ understanding the structure of a given monad.
     $\join{Reader}{\doverline{x}}$ & $=$ & $\lambdaE{r}{(\doverline{x}~r)~r}$
   \end{tabular}
 \end{center}
+Despite its relative simplicity, the \textsf{Reader} monad is quite powerful. After defining the
+auxiliary operation,
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{ask}$ & $=$ & $\lambdaE{r}{r}$,
+  \end{tabular}
+\end{center}
+\textsf{Reader} can be used to keep track of configuration values, environment information, and
+any other static value that would otherwise be cumbersome to pass around. Readers are also safer
+and more flexible than global variables or constants, since they can be set midway through the
+computation and are guaranteed to not change later on.
+
+\subsubsection{Nondeterminism (Set)}
+The nondeterminism monad (also known as the set monad) enables direct-style programming of
+nondeterministic algorithms.
+\begin{center}
+  \begin{tabular}{lll}
+    $\textsf{type ND}$~$\alpha$ & $=$ & $2^\alpha$ \\
+    $\map{ND}{f}{\overline{x}}$ & $=$ & $\{f~x \mid x \in \overline{x}\}$ \\
+    $\unit{ND}{x}$ & $=$ & $\{x\}$ \\
+    $\join{ND}{\doverline{x}}$ & $=$ & $\bigcup \doverline{x}$
+  \end{tabular}
+\end{center}
+A value in \textsf{ND} is a set of possible outcomes. Together with an auxiliary operator for
+nondeterministic choice
+\begin{center}
+  \begin{tabular}{lll}
+    $\overline{x} \sqcup \overline{y}$ & $=$ & $\overline{x} \cup \overline{y}$,
+  \end{tabular}
+\end{center}
+this monad can be extremely useful.
 
 \subsubsection{Parser}
+Finally, here is a more complicated monad: \textsf{Parser}. Parsers can be seen as a combination
+of two monads: \textsf{List} and \textsf{State}.\footnote{Technically \textsf{Parser} can be
+formed using a {\em monad transformer}, but those were developed later on~\cite{liang1995monad}.}
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{type Parser}$~$\alpha$ & $=$ & $\textsf{String} \to \textsf{List}~(\alpha,\, \textsf{String})$ \\
@@ -417,8 +491,73 @@ understanding the structure of a given monad.
     $\join{Parser}{\doverline{x}}$ & $=$ & $\lambdaE{i}{[(x,\, i'') \mid (\overline{x},\, i') \leftarrow \doverline{x}~i;\ (x,\ i'') \leftarrow \overline{x}~i']^{\textsf{List}}}$
   \end{tabular}
 \end{center}
+Intuitively, the \textsf{String} argument is the parser input, and the result is a list of
+potential parses. Each potential parse is made up of a result of type $\alpha$ and the
+\textsf{String} that remains after parsing. There are a number of auxiliary operations that are
+useful for \textsf{Parser} (often called {\em parser combinators}), including ``\textsf{satisfy}''
+which only parses a character that matches a given predicate and ``\textsf{many}'' which applies a
+parser multiple times. An amazing amount of research has been done on the \textsf{Parser} monad
+and parser combinators~\cite{hutton1996monadic, leijen2001parsec}, and it is still an active
+area~\cite{willis2020staged}.
 
 \subsection{Translation}
+
+Monads can be used to replicate a variety of effects in a pure way; it would be nice if there was
+a way to translate an impure program into the equivalent monadic program. Wadler gives two such
+translations, one for call-by-value and another for call-by-name. The result of both translations
+is a pure program in the non-strict lambda calculus with comprehensions that we have been using for
+examples.
+
+Suppose our source language is a simple typed lambda calculus with products and projections:
+\[
+ e \Coloneqq x \mid \lambdaE{x}{e} \mid e_1~e_2 \mid (e_1,\, e_2) \mid \textsf{\color{ACMDarkBlue}fst}~e \mid \textsf{\color{ACMDarkBlue}snd}~e
+\]
+The call-by-value translation ``$e^*$'' lifts a program of type 
+\begin{center}
+$\alpha \to \beta$ \hspace{5mm} to one of type \hspace{5mm} $\alpha \to \textsf{M}~\beta$
+\end{center}
+for some monad \textsf{M}. Intuitively, the translated function takes a value of type $\alpha$ and
+returns a {\em computation} of type $\beta$. The monad captures the effects of that computation.
+Here is the translation in full:
+\begin{align*}
+  x^* &= [x]^\textsf{M} \\
+  (\lambdaE{x}{e})^* &= [\lambdaE{x}{e^*}]^\textsf{M} \\
+  (e_1~e_2)^* &= [y \mid f \leftarrow e_1^*;\ x \leftarrow e_2^*;\ y \leftarrow f~x]^\textsf{M} \\
+  (e_1,\, e_2)^* &= [(x, y) \mid x \leftarrow e_1^*;\ y \leftarrow e_2^*]^\textsf{M} \\
+  (\textsf{\color{ACMDarkBlue}fst}~e)^* &= [\textsf{\color{ACMDarkBlue}fst}~x \mid x \leftarrow e^*]^\textsf{M}
+\end{align*}
+Each of these rules has a straightforward computational meaning. For example
+\[ (e_1~e_2)^* = [y \mid f \leftarrow e_1^*;\ x \leftarrow e_2^*;\ y \leftarrow f~x]^\textsf{M} \]
+says that in order to evaluate a (potentially effectful) application, evaluate $e_1$ to $f$, then
+evaluate $e_2$ to $x$, and then evaluate the application ``$f~x$'', all the while keeping track
+of any side-effects that are produced.
+
+If our source language was actually effectful, for example with built-in effects
+``$\textsf{\color{ACMDarkBlue}get}$'' and ``$\textsf{\color{ACMDarkBlue}put}$'', we could choose
+$\textsf{M} = \textsf{State}$ and add translations
+\begin{align*}
+  \textsf{\color{ACMDarkBlue}get}^* &= [x \mid x \leftarrow \textsf{get}]^\textsf{State} \\
+  (\textsf{\color{ACMDarkBlue}put}~e)^* &= [u \mid x \leftarrow e^*;\ u \leftarrow \textsf{put}~x]^\textsf{State}
+\end{align*}
+where \textsf{get} and \textsf{put} are defined as in Section \ref{sec:monad-examples}. If we
+were to prove once and for all that the monadic version has the same semantics as the impure
+version, further analysis could be done on the pure language instead. In addition, this kind of
+translation might streamline the implementation of a compiler or interpreter.
+
+Wadler also gives a call-by-name version of the translation, which lifts a program of type
+\begin{center}
+$\alpha \to \beta$ \hspace{5mm} to one of type \hspace{5mm} $\textsf{M}~\alpha \to \textsf{M}~\beta$.
+\end{center}
+In call-by-name, the function arguments are computations as well. The translation is written
+$e^\dagger$:
+\begin{align*}
+  x^\dagger &= x \\
+  (\lambdaE{x}{e})^\dagger &= [\lambdaE{x}{e^\dagger}]^\textsf{M} \\
+  (e_1~e_2)^\dagger &= [y \mid f \leftarrow e_1^\dagger;\ y \leftarrow f~e_2^\dagger]^\textsf{M} \\
+  (e_1,\, e_2)^\dagger &= [(e_1^\dagger,\, e_2^\dagger)]^\textsf{M} \\
+  (\textsf{\color{ACMDarkBlue}fst}~e)^\dagger &= [y \mid x \leftarrow e^\dagger;\ y \leftarrow \textsf{\color{ACMDarkBlue}fst}~x]^\textsf{M}
+\end{align*}
+If the source language were call-by-name, this translation might be similarly useful to the first.
 
 \section{Common Design Patterns} \label{sec:patterns}
 
