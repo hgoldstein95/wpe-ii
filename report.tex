@@ -7,14 +7,17 @@
 \usepackage{subcaption}
 \usepackage{float}
 \usepackage{xcolor}
+\usepackage{stmaryrd}
+\usepackage{anyfontsize}
 
 \newif\ifdraft\drafttrue
 
 \definecolor{green}{HTML}{298a33}
+\definecolor{orange}{HTML}{995d02}
 
 \newcommand{\outline}[1]{
   \ifdraft
-  {\color{gray}{#1}}
+  {\color{red}{#1}}
   \fi
 }
 
@@ -37,6 +40,7 @@
 \newcommand{\unit}[2]{\textsf{unit}^{\textsf{#1}}~#2}
 \newcommand{\join}[2]{\textsf{join}^{\textsf{#1}}~#2}
 \newcommand{\cps}[1]{\mathcal{C}\llbracket #1 \rrbracket}
+\newcommand{\denote}[1]{\mathcal{E}\llbracket #1 \rrbracket}
 \newcommand{\stringE}[1]{\textsf{\color{green} ``#1''}}
 
 \lstset{ %
@@ -255,18 +259,18 @@ other considerations.
 
 Prior to this work, researchers had already considered language-level abstractions for working
 with continuations. The most famous, known as ``call with current continuation,'' or simply
-\textsf{\color{ACMDarkBlue} call/cc} can added as an operator in our source language and
-implemented as an extension to the CPS translation:
+call/cc can be added as an operator in our source language and implemented as an extension to the
+CPS translation:
 \[ \cps{\callcc{k}{e}} = (\lambdaE{\kappa}{\cps{e}~\kappa})[k \mapsto \lambdaE{x}{\lambdaE{\kappa'}{\kappa~x}}] \]
-where ``$e[x \mapsto v]$'' means $e$ with $v$ substituted for free instances of $x$. The
-\textsf{\color{ACMDarkBlue} call/cc} operator is extremely powerful, allowing the programmer to
-arbitrarily pause and resume evaluation as they see fit. For example,
+where ``$e[x \mapsto v]$'' means $e$ with $v$ substituted for free instances of $x$. The call/cc
+operator is extremely powerful, allowing the programmer to arbitrarily pause and resume
+evaluation as they see fit. For example,
 \[ \callcc{k}{1} \]
 throws an exception with the value $1$ and
 \[ \callcc{k}{(\textsf{\color{ACMDarkBlue} print}~\stringE{foo};\ k~10)} \]
 pauses the computation, prints ``foo'', and then resumes computation with the value 10.
-Unfortunately, many have said that \textsf{\color{ACMDarkBlue} call/cc} is {\em too} powerful.
-Consider the popular Yin-Yang Puzzle:
+Unfortunately, many have said that call/cc is {\em too} powerful. Consider the popular Yin-Yang
+Puzzle:
 \begin{align*}
 & \textsf{\color{ACMDarkBlue} let}\ \textsf{yin}\ =\ (\lambdaE{c}{(\textsf{\color{ACMDarkBlue} print}~\stringE{@};\ c)})~(\callcc{k}{k})~\textsf{\color{ACMDarkBlue} in} \\
 & \textsf{\color{ACMDarkBlue} let}\ \textsf{yang}\ =\ (\lambdaE{c}{(\textsf{\color{ACMDarkBlue} print}~\stringE{*};\ c)})~(\callcc{k}{k})~\textsf{\color{ACMDarkBlue} in} \\
@@ -277,7 +281,89 @@ representation, printing
 \[ \stringE{@*@**@***@****@*****...}, \]
 but it is extremely difficult to understand exactly why that is.
 
+\citet{felleisen1988theory} started to reign this power in, introducing first-class ``prompts'' and
+a way to delimit continuation scopes, but scopes were dynamic and the overall approach did not admit
+a straightforward translation into a standard lambda calculus. \citeauthor{danvy1990abstracting}
+built on this approach and introduced statically delimited continuations.
+
 \subsection{Delimited Continuations}
+
+\citeauthor{danvy1990abstracting} introduce the ``shift'' and ``reset'' operations mentioned in
+Section \ref{sec:introduction}, which provide a more usable alternative to call/cc. These
+operators can also be interpreted via a modified CPS translation into what Danvy and Filinski call
+{\em extended continuation-passing style}:
+\begin{align*}
+  \cps{\shift{k}{e}} &= (\lambdaE{\kappa}{\cps{e}~\textsf{id}})[k \mapsto \lambdaE{x}{\lambdaE{\kappa'}{\kappa'~(\kappa~x)}}] \\
+  \cps{\reset{e}} &= \lambdaE{\kappa}{\kappa~(\cps{e}~\textsf{id})}
+\end{align*}
+Shift and reset provide a more intuitive way of working with continuations. Reset clearly
+delimits the bounds of the current context, and shift gives programmatic access to that context.
+In this example
+\begin{align*}
+& 1 + \reset{10 + \shift{k}{k~(k~100)}} \Rightarrow \\
+& 1 + (10 + (10 + 100)) \Rightarrow \\
+& 121,
+\end{align*}
+the continuation ``$k = \lambdaE{x}{10 + x}$'' is applied twice to $100$ before finishing the
+evaluation by adding $1$.
+
+In addition to the CPS translation, \citeauthor{danvy1990abstracting} give a denotational semantics.
+Assuming $\textsf{Ans}$ is a suitable domain of final answers, we define
+\begin{center}
+  \begin{tabular}{llr}
+    $\rho \in \textsf{Env}$ & $=$ & $\textsf{Var} \rightharpoonup \textsf{Val}$ \\
+    $\gamma \in \textsf{MCont}$ & $=$ & $\textsf{Val} \to \textsf{Ans}$ \\
+    $\kappa \in \textsf{Cont}$ & $=$ & $\textsf{Val} \to \textsf{MCont} \to \textsf{Ans}$ \\
+    $\mathcal{E}$ & $:$ & $\textsf{Exp} \to \textsf{Env} \to \textsf{Cont} \to \textsf{MCont} \to \textsf{Ans}$.
+  \end{tabular}
+\end{center}
+The denotational semantics is given by the equations
+\begin{align*}
+  \denote{x}~\rho~\kappa~\gamma &= \kappa~(\rho[x])~\gamma \\
+  \denote{\lambdaE{x}{e}}~\rho~\kappa~\gamma &= \kappa~(\lambdaE{v}{\denote{e}~(\rho[x \mapsto v])})~\gamma \\
+  \denote{e_1~e_2}~\rho~\kappa~\gamma &=
+    \denote{e_1}~\rho~(\lambdaE{f}{\denote{e_2}~\rho~(\lambdaE{x}{f~x~\kappa})})~\gamma \\
+  \denote{\textsf{\color{ACMDarkBlue}true}}~\rho~\kappa~\gamma &= \kappa~\textsf{\color{ACMDarkBlue} true}~\gamma \\
+  \denote{\ifThenElse{e_1}{e_2}{e_3}}~\rho~\kappa~\gamma &= 
+    \denote{e_1}~\rho~(\lambdaE{b}{\ifThenElse{b}{\denote{e_2}~\rho~\kappa}{\denote{e_3}~\rho~\kappa}})~\gamma \\
+  \denote{\shift{k}{e}}~\rho~\kappa~\gamma &=
+    \denote{e}~(\rho[k \mapsto \lambdaE{x}{\lambdaE{\kappa'}{\lambdaE{\gamma'}{\kappa~x~(\lambdaE{w}{\kappa'~w~\gamma'})}}}])~(\lambdaE{x}{\lambdaE{\gamma''}{\gamma''~x}})~\gamma \\
+  \denote{\reset{e}}~\rho~\kappa~\gamma &= \denote{e}~\rho~(\lambdaE{x}{\lambdaE{\gamma'}{\gamma'~x}})~(\lambdaE{x}{\kappa~x~\gamma})
+\end{align*}
+where constructions on the right-hand side are understood as syntax of a meta-language for
+defining computable functions, rather than as concrete syntax of a programming language. Note that
+some $\gamma$ arguments are $\eta$-reduced away to simplify presentation---in fact, they can be
+entirely elided for all rules other than the ones for shift and reset.
+
+\subsection{Metacircular Interpreters}
+
+\newcommand{\quoteE}[1]{{\color{orange} \ulcorner #1 \urcorner}}
+\newcommand{\unquoteE}[1]{{\color{black} \llparenthesis #1 \rrparenthesis }}
+
+\begin{align*}
+  \cps{x} &= \lambdaE{\kappa}{\kappa~x} \\
+  \cps{\lambdaE{x}{e}} &=
+    \lambdaE{\kappa}{\kappa~\quoteE{\lambdaE{\unquoteE{x}}{\lambdaE{k}{\unquoteE{\cps{e}~(\lambdaE{a}{\quoteE{k~\unquoteE{a}}})}}}}} \\
+  \cps{e_1~e_2} &= \lambdaE{\kappa}{\cps{e_1}~(\lambdaE{f}{\cps{e_2}~(\lambdaE{x}{\quoteE{\unquoteE{f}~\unquoteE{x}~(\lambdaE{t}{\unquoteE{\kappa~\quoteE{t}}})}})})} \\
+  \cps{\textsf{\color{ACMDarkBlue}true}} &= \lambdaE{\kappa}{\kappa~\textsf{\color{ACMDarkBlue} true}} \\
+  \cps{\ifThenElse{e_1}{e_2}{e_3}} &= \lambdaE{\kappa}{\cps{e_1}~(\quoteE{\lambdaE{b}{\ifThenElse{b}{\unquoteE{\cps{e_2}~\kappa}}{\unquoteE{\cps{e_3}~\kappa}}}})} \\
+  \cps{\shift{k}{e}} &= (\lambdaE{\kappa}{\cps{e}~\textsf{id}})[k \mapsto \quoteE{\lambdaE{x}{\lambdaE{\kappa'}{\kappa'~\unquoteE{\kappa~\quoteE{x}}}}}] \\
+  \cps{\reset{e}} &= \lambdaE{\kappa}{\kappa~(\cps{e}~\textsf{id})}
+\end{align*}
+
+\begin{align*}
+  \cps{x} &= x \\
+  \cps{\lambdaE{x}{e}} &= \quoteE{\lambdaE{\unquoteE{x}}{\lambdaE{\kappa}{\unquoteE{\reset{\quoteE{\kappa~\unquoteE{\cps{e}}}}}}}} \\
+  \cps{e_1~e_2} &= \shift{\kappa}{\quoteE{\unquoteE{\cps{e_1}}~\unquoteE{\cps{e_2}}~(\lambdaE{t}{\unquoteE{\kappa~\quoteE{t}}})}} \\
+  \cps{\textsf{\color{ACMDarkBlue}true}} &= \cps{\textsf{\color{ACMDarkBlue}true}} \\
+  \cps{\ifThenElse{e_1}{e_2}{e_3}} &= \shift{\kappa}{\quoteE{\ifThenElse{\unquoteE{\cps{e_1}}}{\unquoteE{\reset{\kappa~\cps{e_2}}}}{\unquoteE{\reset{\kappa~\cps{e_3}}}}}} \\
+  \cps{\shift{k}{e}} &= \shift{\kappa}{\reset{\cps{e}}[k \mapsto \quoteE{\lambdaE{x}{\lambdaE{\kappa'}{\kappa'~\unquoteE{\kappa~\quoteE{x}}}}}]} \\
+  \cps{\reset{e}} &= \reset{\cps{e}}
+\end{align*}
+
+\subsection{Use Case: Nondeterministic Programming}
+
+\subsection{Generalizing to More Contexts}
 
 \section{{\em Comprehending Monads}} \label{sec:wadler}
 
@@ -645,6 +731,8 @@ Admittedly, this is not as terse as
 \[ 1 + \reset{10 + \shift{k}{k~(k~100)}}, \]
 but it says and does the same thing, and critically neither version relies on manually managing
 continuation parameters.
+
+\outline{Present the monad transformation into Cont and show that it recovers ECPS}
 
 \section{Conclusion} \label{sec:conclusion}
 
