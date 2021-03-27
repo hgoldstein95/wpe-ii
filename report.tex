@@ -779,53 +779,81 @@ If the source language were call-by-name, this translation might be similarly us
 
 \section{Common Design Patterns} \label{sec:patterns}
 The zoo of monads presented by Wadler are a nice basis by which to evaluate other compositional
-abstractions. As one might hope, delimited continuations are also able to represent many of the
-monads Wadler mentions---a blog post by \citet{xia_2019} from 2019 describes these constructions
-incredibly well, and I rely heavily on that post for this section.
+abstractions. As one might hope, delimited continuations are able to represent many of the monads
+that Wadler mentions---a blog post by \citet{xia_2019} from 2019 describes these constructions
+incredibly well, and many of the constructions here are inspired by that presentation.
 
-Each of these examples will simply be a set of function definitions representing (1) the
-primitive operations that are core to the abstraction and (2) a \textsf{run} function that delimits
-the scope of the computation.
+Reimplementing a monadic design pattern using delimited continuations requires defining (1) the
+primitive operations that are core to the abstraction and (2) a \textsf{run} function that
+delimits the scope of the computation.
 
 \subsubsection{Maybe}
-
+When we saw the \textsf{Maybe} monad earlier we did not talk about any primitive operations, but
+there is one obvious one: \textsf{abort}. Abort throws the simplest kind of exception, throwing
+away the computation and returning \textsf{Nothing}.
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{abort}$ & $=$ & $\shift{k}{\textsf{Nothing}}$ \\
     $\textsf{run}^{\textsf{Maybe}}~c$ & $=$ & $\reset{\textsf{Just}~c}$
   \end{tabular}
 \end{center}
+The definition of \textsf{abort} here reflects that intuition. The \textsf{run} function simply
+wraps the computation result in \textsf{Just}, unless there is an \textsf{abort}.
 
 \subsubsection{Identity}
-
+Identity can be encoded without using continuations at all, of course, but this presentation is
+more instructive.
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{noop}~x$ & $=$ & $\shift{k}{k~x}$ \\
     $\textsf{run}^{\textsf{Id}}~c$ & $=$ & $\reset{c}$
   \end{tabular}
 \end{center}
+Here the \textsf{noop} operation shows how to do nothing using delimited continuations---just
+call the continuation. All \textsf{run} needs to do is delimit the continuation scope.
 
 \subsubsection{State}
-
+This example is considerably more involved. As with the state monad, encoding state with
+continuations is about capturing state in function parameters and return values.
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{get}$ & $=$ & $\shift{k}{\lambdaE{s}{k~s~s}}$ \\
     $\textsf{put}~s'$ & $=$ & $\shift{k}{\lambdaE{s}{k~()~s'}}$ \\
-    $\textsf{run}^{\textsf{State}}~c~s$ & $=$ & $\reset{(\lambdaE{v}{\lambdaE{s}{v}})~c}~i$
+    $\textsf{run}^{\textsf{State}}~c~i$ & $=$ & $\reset{(\lambdaE{v}{\lambdaE{s}{v}})~c}~i$
   \end{tabular}
 \end{center}
+Our continuations take two parameters: the first is the computation value, and the second is the
+new state. The \textsf{get} operation takes in the current state and continues with that state as
+both the computation value and the new state. The \textsf{put} operation ignores the current
+state and continues with unit as the computation value and $s'$ as the new state. The
+\textsf{run} function takes an initial state and passes it in {\em outside} of the continuation
+scope.
+
+As with the monadic version, these operations can be used to simulate stateful code. For example,
+this program
+\begin{align*}
+\textsf{run}^{\textsf{State}}~(& \textsf{\color{ACMDarkBlue}let}~i = \textsf{get}~\textsf{\color{ACMDarkBlue}in} \\
+& \textsf{put}~(i + 3); \\
+& \textsf{\color{ACMDarkBlue}let}~j = \textsf{get}~\textsf{\color{ACMDarkBlue}in} \\
+& \textsf{put}~(j * 7); \\
+& \textsf{get})~3
+\end{align*}
+returns 42 as one might expect, and does so without references or other build-in state constructs.
 
 \subsubsection{Reader}
-
+\textsf{Reader} is strictly simpler than \textsf{State}, but we can use the same definitions anyway.
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{ask}$ & $=$ & $\textsf{get}$ \\
     $\textsf{run}^{\textsf{Reader}}$ & $=$ & $\textsf{run}^{\textsf{State}}$
   \end{tabular}
 \end{center}
+We just rename \textsf{get} to \textsf{ask} and don't provide a \textsf{put} operation.
 
 \subsubsection{Nondeterminism}
-
+As with the monadic view, nondeterminism can be represented using sets. Here we have two primitive
+operations: \textsf{fail} is a ``dead-end'' branch, and $\sqcup$ represents a choice between two
+values.
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{fail}$ & $=$ & $\shift{k}{k~\varnothing}$ \\
@@ -833,9 +861,18 @@ the scope of the computation.
     $\textsf{run}^{\textsf{ND}}~c$ & $=$ & $\reset{(\lambdaE{v}{\{v\}})~c}$
   \end{tabular}
 \end{center}
+Note the way we accomplish this. Our implementation of \textsf{run} lifts computations into
+singleton sets, and our operators call the continuation on whatever values should be
+considered---either nothing in the case of \textsf{fail} or both $x$ and $y$ in the case of $x
+\sqcup y$.
 
-\subsection{What about the rest?}
-\outline{list, strict, parser}
+\subsection{Are there more?}
+This is just the tip of the iceberg when it comes to monadic design patterns that can be
+implemented using delimited continuations---in fact a few years after {\em Abstracting Control},
+\citet{filinski1994representing} published another paper showing that delimited continuations can
+represent all ``pure'' monads (i.e. those whose \textsf{map}, \textsf{join}, and \textsf{bind}
+operations can be implemented in a pure language). We discuss this result further in Section
+\ref{sec:conclusion}.
 
 \section{The Continuation Monad} \label{sec:contmonad}
 So far we have seen a number of examples of monads, but \citeauthor{wadler1990comprehending}
@@ -900,6 +937,15 @@ choice of monad, but the same goes for the translations of any monad-specific op
 get and put).
 
 \section{Conclusion} \label{sec:conclusion}
+
+The connection between monads and continuations has already been explored.
+\citet{filinski1994representing} provides a detailed account of how monadic computations can be
+represented using delimited continuations. While my constructions in Section \ref{sec:patterns}
+are ad-hoc and dependent on the particular monad in question, Filinski managed to give a
+translation that represents monadic patterns with continuations once-and-for-all. Still, the
+ad-hoc connections are valuable: they provide more granular intuition than Filinski's
+presentation, and they are all entirely pure, while Filinski's formulation relies on a reference
+cell.\footnote{This is a nit-picky point, but requiring an impure reference cell is a compromise.}
 
 \outline{
   \begin{itemize}
