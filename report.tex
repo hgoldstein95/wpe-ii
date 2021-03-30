@@ -99,65 +99,73 @@
   continuations} and {\em monads}. \citet{danvy1990abstracting} explored delimited continuations
   as a principled way of manipulating program contexts as first-class functions.
   \citet{wadler1990comprehending} popularized monads as a tool for simulating effects in a pure
-  language. Though they seem to have little to do with one-another, delimited continuations and
-  monads actually have a lot in common: they can solve many of the same programming problems, and
-  their meta-theories are surprisingly compatible. This report re-contextualizes those early 90's
-  papers and explores the commonalities between monads and delimited continuations.
+  language. Though they initially seem to have little to do with one-another, delimited
+  continuations and monads actually have a lot in common: they can implement many of the same
+  design patterns, and their meta-theories are surprisingly compatible. This report
+  re-contextualizes those early 90's papers and explores the commonalities between monads and
+  delimited continuations.
 \end{abstract}
 
 \maketitle
 
 \section{Introduction} \label{sec:introduction}
-\outline{Talk briefly about compositional abstractions---what they are and why they matter for PL}
-Programming languages research focuses heavily on abstractions. Abstractions enable programmers
-to write code that is succinct and clear while hiding implementation details. Consider the
-following programs that appear to be stateful:
+When writing an algorithm, programmers want to focus on the interesting parts and ignore the
+implementation details. Error cases can be neatly packaged up in exceptions, mutable state can be
+implemented with references, and non-deterministic choices can be made by random number
+generators, all while the programmer focuses on the important parts of their algorithm.
+Unfortunately, languages with built-in {\em effects} like errors, state, and nondeterminism are
+often harder to reason about than computationally {\em pure} languages without such features. Is
+it possible abstract away effects {\em and} keep the benefits of purity? Two abstractions, developed
+independently in the early 1990's, provide ways to do just that.
+
+Consider the following programs that perform simple error handling:
 \begin{figure}[H]
 \centering
 \begin{subfigure}{.5\textwidth}
   \centering
-  \begin{lstlisting}[style=rkt]
-  (define (program)
-    (let ([i (get)])
-      (put (+ i 3))
-      (let ([j (get)])
-        (put (* j 7))
-        (get))))
+  \begin{lstlisting}[style=rkt, deletekeywords={abort}, mathescape]
+  (define (p n)
+    (let ([i 84]
+          [j (if (= n 0)
+               (abort)
+               n)])
+      (/ i j)))
 
-  (eval-state program 3) ; 42
+  (run ($\lambda$ () (p 2)) ; '('Just 42)
+  (run ($\lambda$ () (p 0)) ; 'Nothing
   \end{lstlisting}
   \label{fig:racket-state}
 \end{subfigure}%
 \begin{subfigure}{.5\textwidth}
   \centering
   \begin{lstlisting}[style=hs]
-  program = do
-    i <- get
-    put (i + 3)
-    j <- get
-    put (j * 7)
-    get
+  p n = do
+    i <- return 84
+    j <- if n == 0
+      then abort
+      else return n
+    return (i `div` j)
 
-  evalState program 3 -- 42
+  run (p 2) -- Just 42
+  run (p 0) -- Nothing
   \end{lstlisting}
   \label{fig:hs-state}
 \end{subfigure}
 \Description[State Abstraction]{Code for manipulating state.}
 \label{fig:stateful-comps}
 \end{figure}
-\noindent Perhaps surprisingly, both of these programs are ``purely'' functional---they do not
-use references or other imperative features. The illusion of state is created by underlying
-abstractions that allow the programmer to think in terms of changing state without sacrificing
-the advantages of purity.
+\noindent Both of these programs are pure---they do not use exceptions or other built-in effects.
+The error handling is done entirely by underlying abstractions that allow the programmer to think
+in terms of exceptions without adding native effects to the language.
 
-The first snippet, written in Racket, uses {\em delimited continuations} to implement a stateful
-API. A continuation is a first-class representation of the "rest" of a computation. For example,
-when evaluating the sub-expression ``$x < 3$'' in
-\[ \ifThenElse{x < 3}{10}{20}, \]
+The first snippet, written in Racket, uses {\em delimited continuations} to implement error
+handling. A continuation is a first-class representation of the "rest" of a computation. For
+example, when evaluating the sub-expression ``$2$'' in a simplified version of our above example,
+\[ \letIn{i}{84}{\letIn{j}{2}{i / j}}, \]
 the remaining {\em context} is
-\[ \ifThenElse{\_}{10}{20}, \]
+\[ \letIn{i}{84}{\letIn{j}{\_}{i / j}}, \]
 and the continuation, $k$, is
-\[ k = \lambdaE{b}{\ifThenElse{b}{10}{20}}. \]
+\[ k = \lambdaE{x}{\letIn{i}{84}{\letIn{j}{x}{i / j}}}. \]
 The continuation captures the context as a function. In {\em Abstracting Control},
 \citet{danvy1990abstracting} present two operators for manipulating continuations: {\em shift}
 (written ``$\shift{k}{e}$'') and {\em reset} (written ``$\reset{e}$''). Reset delimits the scope
@@ -166,46 +174,45 @@ reset. The expression ``$\shift{k}{e}$''captures the current context as a contin
 then executes $e$ in a fresh context. We can use shift and reset to extract the continuation from
 above:
 \begin{align*}
-  & \reset{\ifThenElse{(\shift{k}{k~(x < 3)})}{10}{20}} \\
-  \rightarrow\ & \letIn{k}{(\lambdaE{b}{\ifThenElse{b}{10}{20}})}{k~(x < 3)}
+  & \reset{\letIn{i}{84}{\letIn{j}{(\shift{k}{k~2})}{i / j}}} \\
+  \rightarrow\ & \letIn{k}{(\lambdaE{x}{\letIn{i}{84}{\letIn{j}{x}{i / j}}})}{k~2}
 \end{align*}
-Reset delimits the context, in this case the whole ``$\textsf{if}$'' expression, and shift
-packages the continuation into $k$. In this example the shift body just applies $k$, so nothing
-has changed---the result will be the same as the original expression. But the shift body can be
+Reset delimits the context, in this case the whole expression, and shift packages the
+continuation into $k$. In this example the shift body just applies $k$, so nothing has
+changed---the result will be the same as the original expression. But the shift body can be
 anything. In particular, if $k$ is not used at all
-\[ \reset{\ifThenElse{(\shift{k}{x < 3})}{10}{20}} \]
-the result is essentially an {\em exception}: the ``$\textsf{if}$'' is thrown away and the result
-of the computation is just $x < 3$. Clever uses of delimited continuations like this can be used
-to build up complex control flow including the state abstraction from our original example.
+\[ \reset{\letIn{i}{84}{\letIn{j}{(\shift{k}{\textsf{Nothing}})}{i / j}}} \]
+the result is essentially an {\em exception}: the expression is thrown away and the result of the
+computation is just \textsf{Nothing}. This is roughly how the Racket example above is
+implemented.
 
-The second snippet simulates stateful computations using a {\em monad} in Haskell. Monads were
-introduced to the programming languages literature by \citet{moggi1991notions}, but they were
-popularized by \citeauthor{wadler1990comprehending} in {\em Comprehending
+The second snippet simulates error-handling computations using a {\em monad} in Haskell. Monads
+were introduced to the programming languages literature by \citet{moggi1991notions}, but they
+were popularized by \citeauthor{wadler1990comprehending} in {\em Comprehending
 Monads}~\cite{wadler1990comprehending}. As a programming abstraction, monads generalize the
 well-known idea of list comprehensions:
 \[
   [ (x,\,y) \mid x \leftarrow [1,\, 2] ;\ y \leftarrow [3,\, 4] ]^{\textsf{List}}
 \]
 This expression results in the Cartesian product of lists ``$[1,\, 2]$'' and ``$[3,\, 4]$.''
-Wadler observed that comprehension syntax can be to program with any monad (not just
+Wadler observed that comprehension syntax can be used to program with any monad (not just
 $\textsf{List}$):
 \[
-  [ y \mid x \leftarrow \textsf{thisMightFail}~() ;\ y \leftarrow \textsf{thisMightFailToo}~{x} ]^{\textsf{Maybe}}
+  [ i / j \mid i \leftarrow [84]^{\textsf{Maybe}} ;\ j \leftarrow \ifThenElse{n = 0}{\textsf{Nothing}}{[n]^{\textsf{Maybe}}} ]^{\textsf{Maybe}}
 \]
-This monad, usually called $\textsf{Maybe}$, implements a form of exceptions: if either of the
-provided computations fail, the result of comprehension will be $\nothing$, otherwise the result
-will be the value stored in $y$. There are dozens of monads that programmers use in practice,
-each of which gives a different interpretation of comprehension syntax. One such monad,
-$\textsf{State}$, can be used to implement our running example.
+This monad, usually called $\textsf{Maybe}$, is another way to implement pure exceptions: if the
+result of comprehension will be $\nothing$ if $n = 0$, otherwise the result will be $42$. There
+are dozens of monads that programmers use in practice, each of which gives a different
+interpretation of comprehension syntax.
 
 It is not immediately clear that manipulating continuations has anything to do with interpreting
 comprehension syntax. One would be forgiven for assuming that these ideas are largely orthogonal.
-But we have already seen that that delimited continuations and monads can be used to implement
-some of the same design patterns. Could there be more overlap? Yes! It turns out that that are
-many programming techniques, including state, exceptions, non-determinism, and more, that can be
-implemented using either delimited continuations or monads. Furthermore, continuations actually
-form a monad, and \citeauthor{wadler1990comprehending} shows that this fact can be exploited to
-to recover results from \citeauthor{danvy1989functional}.
+But we have already seen that that delimited continuations and monads can both be used to
+simulate exceptions. Could there be more overlap? Yes! It turns out that that all of the effects
+we discussed before, and a number of others, can be implemented using either delimited
+continuations or monads. Furthermore, continuations actually form a monad, and
+\citeauthor{wadler1990comprehending} shows that this fact can be exploited to to recover results
+from \citeauthor{danvy1989functional}.
 
 In this report I make three contributions, after a brief discussion of common notation
 (\S~\ref{sec:notation}):
