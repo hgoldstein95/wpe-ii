@@ -470,19 +470,18 @@ are defined by mutual induction on term structure (as before) and on operator in
   \cps{\reset{e}_{n + 1}} &= \lambdaE{\kappa}{\kappa~\reset{\cps{e}~\textsf{id}}_n}
 \end{align*}
 
-Danvy and Filinski discuss some of the meta-theory behind this approach, but I will not discuss
-that here.
+\outline{Something here?}
 
 \section{{\em Comprehending Monads}} \label{sec:wadler}
 
 Monads were originally introduced to the programming languages literature by
-\citet{moggi1991notions}, but {\em Comprehending Monads} by \citet{wadler1990comprehending} made
-them the popular programming abstraction that they are today. A monad is a common structure in
-category theory. There, a monad is defined as a \underline{functor} with certain associated
+\citet{moggi1991notions}, but {\em Comprehending Monads} by \citet{wadler1990comprehending}
+helped to popularize them. A monad is a mathematical structure commonly used in category theory.
+There, a monad is defined as a \underline{functor} with certain associated
 \underline{\smash{operations}} that obey a set of \underline{laws}.
 
-For our purposes, a functor is a type constructor (e.g. \textsf{List}, \textsf{Maybe}) with an
-operation \textsf{map} that applies a function ``under'' the type constructor. For example,
+For our purposes, a {\em functor} is a type constructor (e.g. \textsf{List}, \textsf{Maybe}) with
+an operation \textsf{map} that applies a function ``under'' the type constructor. For example,
 \[ \map{List}{f}{\overline{x}} \]
 applies $f$ to all elements of $\overline{x}$ and 
 \[ \map{Maybe}{f}{\overline{x}} \]
@@ -493,21 +492,29 @@ variable name.) Map must obey two laws:
   \textsf{map}~\textsf{id} &= \textsf{id} \\
   \textsf{map}~(g \circ f) &= \textsf{map}~g \circ \textsf{map}~f
 \end{align*}
+The first law says that mapping the identity function over a structure does nothing---this is
+necessary to make sure that \textsf{map} does not change the structure itself, only the elements
+in the structure. The second law says that \textsf{map} is well-behaved with respect to function
+composition.
 
 In order for a functor to be a monad, it needs two more operations: \textsf{unit} and \textsf{join}.
 Applying \textsf{unit} to a value injects that value into the monad. In the case of \textsf{List},
 \[ \unit{List}{x} = \textsf{singleton}~x = [x], \]
 which is the simplest way to inject a value into a list. Likewise,
 \[ \unit{Maybe}{x} = \textsf{Just}~x. \]
+There are relatively few functors with no \textsf{unit}, but some do exist. For example, 
+$(\textsf{\color{ACMDarkBlue} int},\, -)$ is a functor, with
+\[ \textsf{map}^{(\textsf{\color{ACMDarkBlue} int},\, -)}~f~(n,\, x) = (n,\, f~x), \]
+but there is no way to know which integer to choose when trying to define \textsf{unit}.
 
 The \textsf{join} operation works on ``doubled up'' instances of the monad. It takes a doubled
 value like
 \begin{center}
-  ``$[[1, 2], [3, 4]]$'' or ``$\textsf{Just}~(\textsf{Just}~5)$''
+  ``$[[1, 2], [3, 4]]$''\hspace{5mm}or\hspace{5mm}``$\textsf{Just}~(\textsf{Just}~5)$''
 \end{center}
 and flattens it down to a single application of the monad like
 \begin{center}
-  ``$[1, 2, 3, 4]$'' or ``$\textsf{Just}~5$''.
+  ``$[1, 2, 3, 4]$''\hspace{5mm}or\hspace{5mm}``$\textsf{Just}~5$''.
 \end{center}
 To be precise,
 \begin{center}
@@ -516,8 +523,20 @@ To be precise,
     $\join{Maybe}{\doverline{x}}$ & $=$ & $\caseOf{\doverline{x}}{\textsf{Just}~(\textsf{Just}~x) \to \textsf{Just}~x;\ \_ \to \textsf{Nothing}}$
   \end{tabular}
 \end{center}
+Functors with a \textsf{join} operation admit a special kind of function chaining called {\em
+Kleisli composition}. Given a functor $F$ and two functions $f: \beta \to F~\gamma$ and $g: \alpha
+\to F~\beta$, we can write
+\[ f \circ_F g = \textsf{join}^F \circ map^F~f \circ g \]
+that composes them together while properly keeping track of $F$. This is useful in programming
+because it means that monadic operations like $f$ and $g$ can be built up individually and
+composed together to build larger programs. A very similar construction can also yield the
+``\textsf{bind}'' (or ``\textsf{>>=}'') definition of monads that is ubiquitous in modern
+programming languages. Though these alternative views of monads are probably more useful for
+programming, they are slightly harder to work with for theory so I will continue to Wadler's
+notation.
 
-As mentioned, these operations must obey certain laws for the monad to behave properly:
+As mentioned, these operations must obey certain laws in order for the structure to truly be a
+monad:
 \begin{align}
   \textsf{map}~f \circ \textsf{unit} &= \textsf{unit} \circ f \\
   \textsf{map}~f \circ \textsf{join} &= \textsf{join} \circ \textsf{map}~(\textsf{map}~f) \\
@@ -538,11 +557,6 @@ Technically this does inject a value into a list, but it is not the simplest way
 \]
 Likewise, the laws require that \textsf{join} flattens a stack of monads in a simple, predictable
 way.
-
-(Those familiar with monads might wonder where ``\textsf{bind}''---also written
-``\textsf{>>=}''---fits into all of this. The short answer is that the \textsf{bind} definition
-of monads is roughly equivalent to the \textsf{map}/\textsf{join} definition, so I default to
-Wadler's notation.)
 
 All of this background on monads and their operations is important, but in practice using these
 operations directly does not make for particularly elegant code. In the next section, I explore
