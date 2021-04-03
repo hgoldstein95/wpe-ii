@@ -77,7 +77,7 @@
 \begin{document}
 
 \title{Delimited Continuations and Monads}
-\subtitle{A Comparison of Programming Abstractions}
+\subtitle{Understanding from First Principles}
 \titlenote{
   This report was compiled for part of the University of Pennsylvania's WPE-II Exam. The
   accompanying talk is available on the author's website.
@@ -96,136 +96,104 @@
 
 \begin{abstract}
   In 1990, two programming abstractions were introduced independently: {\em delimited
-  continuations} and {\em monads}. \citet{danvy1990abstracting} explored delimited continuations
-  as a principled way of manipulating program contexts as first-class functions.
-  \citet{wadler1990comprehending} popularized monads as a tool for simulating effects in a pure
-  language. Though they initially seem to have little to do with one-another, delimited
-  continuations and monads actually have a lot in common: they can implement many of the same
-  design patterns, and their meta-theories are surprisingly compatible. This report
-  re-contextualizes those early 90s papers and explores the commonalities between monads and
-  delimited continuations.
+  continuations} and {\em monads}. Both of these topics have reputations of being difficult to
+  understand, and while they are certainly complex ideas, they can certainly be made accessible
+  to all computer science researchers.
+  
+  This report presents both delimited continuations and monads from first principles by following
+  the papers that originally popularized the ideas. First I discuss {\em Abstracting Control} by
+  \citet{danvy1990abstracting}, and then I explore {\em Comprehending Monads} by
+  \citet{wadler1990comprehending}. Though the two abstractions initially seem to have little to
+  do with one-another, delimited continuations and monads actually have a lot in common: they can
+  implement many of the same design patterns, and their meta-theories are surprisingly
+  compatible. I leverage these connections to develop intuition and provide context for future
+  reading.
 \end{abstract}
 
 \maketitle
 
 \section{Introduction} \label{sec:introduction}
-When writing an algorithm, programmers want to focus on the interesting parts and ignore the
-implementation details. \outline{Rewrite, recalibrate for audience} Error cases can be neatly
-packaged up in exceptions, mutable state can be implemented with references, and
-non-deterministic choices can be made by random number generators, all while the programmer
-focuses on the important parts of their algorithm. Unfortunately, languages with built-in {\em
-effects} like errors, state, and nondeterminism are often harder to reason about than
-computationally {\em pure} languages without such features. Is it possible to abstract away
-effects {\em and} keep the benefits of purity? Two abstractions, developed independently in the
-early 1990s, provide ways to do just that.
+Some ideas in computer science have the unfortunate reputation of being difficult to understand.
+\outline{more here}
 
-Consider the following programs that perform simple error handling:
-\begin{figure}[H]
-\centering
-\begin{subfigure}{.5\textwidth}
-  \centering
-  \begin{lstlisting}[style=rkt, deletekeywords={abort}, mathescape]
-  (define (p n)
-    (let ([i 84]
-          [j (if (= n 0)
-               (abort)
-               n)])
-      (/ i j)))
+Control flow is a notoriously challenging part of programming languages. Early on \texttt{GOTO}
+statements were the norm. They were extremely simple, but before long people like Dijkstra began
+to argue that ``go to considered harmful''~\cite{dijkstra1968letters} because \texttt{GOTO}s were
+difficult to reason about. The {\em delimited continuations} presented in {\em Abstracting
+Control} by \citet{danvy1990abstracting} can be thought of as another point in the same design
+space. They are more principled and easier to reason about, but understanding their
+implementation requires quite a bit more theory.
 
-  (run ($\lambda$ () (p 2)) ; '('Just 42)
-  (run ($\lambda$ () (p 0)) ; 'Nothing
-  \end{lstlisting}
-  \label{fig:racket-state}
-\end{subfigure}%
-\begin{subfigure}{.5\textwidth}
-  \centering
-  \begin{lstlisting}[style=hs]
-  p n = do
-    i <- unit 84
-    j <- if n == 0
-      then abort
-      else unit n
-    unit (i `div` j)
-
-  p 2 -- Just 42
-  p 0 -- Nothing
-  \end{lstlisting}
-  \label{fig:hs-state}
-\end{subfigure}
-\Description[Maybe Abstraction]{Code that might throw an exception.}
-\label{fig:stateful-comps}
-\end{figure}
-\noindent Both of these programs are pure---they do not use exceptions or other built-in effects.
-The error handling is done entirely by underlying abstractions that allow the programmer to think
-in terms of exceptions without adding native effects to the language.
-
-The first snippet, written in Racket, uses {\em delimited continuations} to implement error
-handling. A continuation is a first-class representation of the ``rest'' of a computation. For
-example, when evaluating the sub-expression ``$2$'' in a simplified version of our above example,
+A {\em continuation} is a first-class representation of the ``rest'' of a computation. For
+example, when evaluating the sub-expression ``$2$'' in the expression
 \[ \letIn{i}{84}{\letIn{j}{2}{i / j}}, \]
 the remaining {\em context} is
 \[ \letIn{i}{84}{\letIn{j}{\_}{i / j}}, \]
 and the continuation, $k$, is
 \[ k = \lambdaE{x}{\letIn{i}{84}{\letIn{j}{x}{i / j}}}. \]
-The continuation captures the context as a function. In {\em Abstracting Control},
-\citet{danvy1990abstracting} present two operators for manipulating continuations: {\em shift}
-(written ``$\shift{k}{e}$'') and {\em reset} (written ``$\reset{e}$''). \outline{Reset delimits
-the scope of the current context---in the example above, we implicitly wrap the whole expression
-in a reset. Degenerate} The expression ``$\shift{k}{e}$'' captures the current context as a
-continuation, $k$, and then executes $e$ in a fresh context. We can use shift and reset to
-extract the continuation from above:
+The continuation captures the context as a function, which can be manipulated as a first-class
+value. Danvy and Filinski present two operators for manipulating continuations: {\em shift}
+(written ``$\shift{k}{e}$'') and {\em reset} (written ``$\reset{e}$''). Reset delimits the
+context, and shift packages that context as a continuation. For example, can use shift and reset
+to extract the continuation from above:
 \begin{align*}
   & \reset{\letIn{i}{84}{\letIn{j}{(\shift{k}{k~2})}{i / j}}} \\
   \rightarrow\ & \letIn{k}{(\lambdaE{x}{\letIn{i}{84}{\letIn{j}{x}{i / j}}})}{k~2}
 \end{align*}
-Reset delimits the context, in this case the whole expression, and shift packages the context as
-$k$. In this example the shift body just applies $k$, so nothing has changed---the result will be
-the same as the original expression. But the shift body can be anything. In particular, if $k$ is
-not used at all
+We replaced the expression $2$ with $\shift{k}{k~2}$, which says ``capture the context as $k$ and
+then apply that to $2$,'' and we wrapped the whole computation in $\reset{\cdot}$ to delimit the
+context. The result is the same as the original expression; the continuation is simply made
+explicit. In this example the shift body just applies $k$, but the shift body can be anything. In
+particular, if $k$ is not used at all
 \[ \reset{\letIn{i}{84}{\letIn{j}{(\shift{k}{\textsf{Nothing}})}{i / j}}} \]
-the result is essentially an {\em exception}: the expression is thrown away and the result of the
-computation is just \textsf{Nothing}. This is roughly how the Racket example above is
-implemented.
+the result is essentially an {\em exception}: the context is thrown away and the result of the
+computation is just \textsf{Nothing}.
 
-The second snippet simulates error-handling computations using a {\em monad} in Haskell. Monads
-were introduced to the programming languages literature by \citet{moggi1991notions}, but they
-were popularized by Wadler in {\em Comprehending Monads}~\cite{wadler1990comprehending}. As a
-programming abstraction, monads generalize the well-known idea of list comprehensions:
+Perhaps the most famously opaque structure in programming languages is the {\em monad}: the
+Internet is filled with monad tutorials that compare the mathematical structure to burritos
+(tasty, but unhelpful) and other ``more accessible'' concepts, but few provide useful
+explanations. To avoid falling into this trap of explaining monads badly, I follow one of the
+earliest and clearest explanations of monads for programming, {\em Comprehending Monads} by
+\citet{wadler1990comprehending}.
+
+Wadler presents monads using an analogy to list comprehensions like
 \[
-  [ (x,\,y) \mid x \leftarrow [1,\, 2] ;\ y \leftarrow [3,\, 4] ]
+  [ (x,\,y) \mid x \leftarrow [1,\, 2] ;\ y \leftarrow [3,\, 4] ],
 \]
-This expression results in the Cartesian product of lists ``$[1,\, 2]$'' and ``$[3,\, 4]$.''
-Wadler observed that comprehension syntax can be used to program with any monad (not just
-$\textsf{List}$). For example:
+which evaluates to the Cartesian product of the lists ``$[1,\, 2]$'' and ``$[3,\, 4]$.'' Wadler
+observed that comprehension syntax can be used to program with more than just lists. For example,
 \[
   [ i / j \mid i \leftarrow [84]^{\textsf{Maybe}} ;\ j \leftarrow \ifThenElse{n = 0}{\textsf{Nothing}}{[n]^{\textsf{Maybe}}} ]^{\textsf{Maybe}}
 \]
-This monad, usually called $\textsf{Maybe}$, is another way to implement pure exceptions: if the
-result of comprehension will be ``$\nothing$'' if $n = 0$, otherwise the result will be
-``$\just{42}$.'' There are dozens of monads that programmers use in practice, each of which gives
-a different interpretation of comprehension syntax.
+binds $i$ to the value $84$, and then checks if $n = 0$. If it is, the whole expression results
+in \textsf{Nothing}, otherwise $j$ is bound to $n$ and we compute $i / j$. The list comprehension
+the syntax provided a way to sequence lists, while this comprehension provides a way to sequence
+computations that might {\em fail}. The superscript \textsf{Maybe} is a monad, and it is often
+used to implement exceptions in languages that do not have them as a first-class feature. There
+are dozens of monads that programmers use in practice, each of which gives a different
+interpretation of comprehension syntax.
 
-It is not immediately clear that manipulating continuations has anything to do with interpreting
-comprehension syntax. One would be forgiven for assuming that these ideas are largely orthogonal.
-But we have already seen that that delimited continuations and monads can both be used to
-simulate exceptions. Could there be more overlap? Yes! It turns out that that all of the effects
-we discussed before, and a number of others, can be implemented using either delimited
-continuations or monads. Furthermore, continuations actually form a monad, and Wadler shows that
-this fact can be exploited to recover results from Danvy and Filinski.
+Explaining each of these ideas individually is interesting, but why present them together? It is
+not immediately clear that manipulating continuations has anything to do with interpreting
+comprehension syntax; one would be forgiven for assuming that these ideas are largely orthogonal.
+But we have already seen that delimited continuations and monads can both be used to simulate
+exceptions, and it turns out that there is significantly more overlap. Design patterns like
+state, nondeterminism, and more can be implemented using both delimited continuations and monads.
+Furthermore, continuations actually form a monad, and Wadler shows that this fact can be
+exploited to recover results from Danvy and Filinski.
 
 In this report I make three contributions:
 \begin{itemize}
-  \item I summarize and re-contextualize two influential papers: {\em Abstracting Control} by
-  Danvy and Filinski (\S~\ref{sec:danvy}) and {\em Comprehending Monads} by
-  Wadler (\S~\ref{sec:wadler}).\footnote{This is a requirement of
-  the WPE-II exam, but I hope that reformulating these results will still be instructive.}
-  \item I show many design patterns that can be implemented equally well by both delimited
-  continuations and monads, establishing a close relationship between the two language features
-  (\S~\ref{sec:patterns}).
-  \item I explore the {\em continuation monad} and show that, by performing a monad-agnostic
+  \item I explain delimited continuations and monads by following two influential papers: {\em
+  Abstracting Control} by Danvy and Filinski (\S~\ref{sec:danvy}) and {\em Comprehending Monads}
+  by Wadler (\S~\ref{sec:wadler}).
+  \item I develop intuition for programming with delimited continuations by implementing a number
+  of the design patterns that Wadler presents as monads. This solidifies the close relationship
+  between the two language features (\S~\ref{sec:patterns}).
+  \item I present the {\em continuation monad} and show that, by performing a monad-agnostic
   transformation given by Wadler, we can recover the ``extended continuation passing style''
-  transformation presented by Danvy and Filinski (\S~\ref{sec:contmonad}). This is
-  a small extension of Wadler's original result.
+  transformation presented by Danvy and Filinski (\S~\ref{sec:contmonad}). This small extension
+  of Wadler's original result exemplifies the importance of monads as a theoretical tool.
 \end{itemize}
 I conclude with some remarks on the broader context of these abstractions (\S~\ref{sec:conclusion}).
 
