@@ -213,15 +213,18 @@ My two source papers differ slightly on notations and conventions. I have chosen
 middle-ground and use one unified set of conventions to discuss both papers. Throughout this
 report, assume that programs are written in a lambda calculus given by the grammar:
 \begin{align*}
-  e \Coloneqq &\ x \mid \lambdaE{x}{e} \mid e_1~e_2 \\
+  e \Coloneqq &\ x \mid \lambdaE{x}{e} \mid e_1~e_2 \mid \letIn{x}{e_1}{e_2} \\
             | &\ \textsf{\color{ACMDarkBlue} true} \mid \textsf{\color{ACMDarkBlue} false} \mid \ifThenElse{e_1}{e_2}{e_3} \mid n \mid e_1 + e_2 \\
-            | &\ (e_1,\, e_2) \mid \textsf{\color{ACMDarkBlue} fst}~e \mid \textsf{\color{ACMDarkBlue} snd}~e
+            | &\ (e_1,\, e_2) \mid \textsf{\color{ACMDarkBlue} fst}~e \mid \textsf{\color{ACMDarkBlue} snd}~e \mid \cdots
 \end{align*}
 The core calculus is just variables, $x$, lambda abstractions $\lambdaE{x}{e}$, and function
-application $e_1~e_2$. Danvy and Filinski use Booleans and natural numbers to illustrate
-delimited continuations, and Wadler uses pairs to illustrate monads---I will include these
-features as-needed. Since we are almost exclusively concerned with the dynamic semantics of these
-programs, I will not formalize a type system.
+application $e_1~e_2$. Let-binding makes presentation clearer, so I assume we have that too,
+although formally I assume $\letIn{x}{e_1}{e_2}$ is implemented as $(\lambdaE{x}{e_2})~e_1$ so I
+will often ignore it in meta-theory. Danvy and Filinski use Booleans and natural numbers to
+illustrate delimited continuations, and Wadler uses pairs to illustrate monads along with
+lightweight data structure definitions---I will include these features as-needed. Since we are
+almost exclusively concerned with the dynamic semantics of these programs, I will not formalize a
+type system.
 
 \section{{\em Abstracting Control}} \label{sec:danvy}
 Before explaining delimited continuations, I should explain some background on continuations and
@@ -453,8 +456,9 @@ Finally, Danvy and Filinski implement the function
 \end{align*}
 which finds all triples of distinct positive integers that sum to a given integer $s$. The
 complexity is pushed into \textsf{choice}, so this function is nice and readable. Evaluating the
-expression ``$\reset{\textsf{\color{ACMDarkBlue}print}~(\textsf{triple}~9~15)}$'' prints all
-triples of integers up to $9$ that sum to $15$.
+expression
+\[ \reset{\textsf{\color{ACMDarkBlue}print}~(\textsf{triple}~9~15)} \]
+prints all triples of integers up to $9$ that sum to $15$.
 
 The \textsf{triple} example is mostly a toy based on an early benchmark, but these primitives can
 be practically useful. In the paper, Danvy and Filinski show an evaluator for {\em
@@ -626,18 +630,22 @@ Comprehensions can be used for computations like the \textsf{Maybe} comprehensio
   [ i / j \mid i \leftarrow [84]^{\textsf{Maybe}} ;\ j \leftarrow \ifThenElse{n = 0}{\textsf{Nothing}}{[n]^{\textsf{Maybe}}} ]^{\textsf{Maybe}}
 \]
 which cleanly handles the fact that the expression binding $j$ might fail, without introducing
-significant control-flow overhead.
+significant syntactic overhead.
 
 \subsection{Examples of Monads} \label{sec:monad-examples}
-Wadler presents a whole zoo of monads in his paper; exploring those structures provides valuable
-intuition for how monads work and what they can do.
+\textsf{List} and \textsf{Maybe} are far from the only monads, and while the formal definitions
+are important, the best way to understand monads is by example. Wadler presents a whole zoo of
+monads in his paper; exploring those structures provides valuable intuition for how monads work
+and what they can do.
 
 \subsubsection{List and Maybe}
-These first two monads have been running examples in this section, so I will not spend much time
-on them here. Both the \textsf{List} and \textsf{Maybe} types are defined as informal algebraic
-data types, similar to how they would be defined in a language like Haskell. The \textsf{List}
-monad gives rise to standard list comprehensions, and the \textsf{Maybe} monad can be used to chain
-operations that might potentially fail.
+For each of these monads, I define the monad data structure (with a fairly standard syntax,
+similar to Haskell) and the three operations, \textsf{map}, \textsf{unit}, and \textsf{join}. I
+assume that we have case-statements in our language for destructuring these data structures.
+
+We have already seen the definitions for \textsf{List} and \textsf{Maybe}: the \textsf{List}
+monad coincides exactly with list comprehensions, and the \textsf{Maybe} monad can be used to
+sequence computations that might fail (returning \textsf{Nothing}).
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
@@ -653,23 +661,29 @@ operations that might potentially fail.
   \end{tabular}
   }
 \end{center}
-\vfill
+\bigskip
 
 \subsubsection{Identity and Strictness}
-The simplest possible monad is an identity---it does nothing. This monad is almost not worth
-mentioning, but it does have one cute use-case: comprehension syntax for the identity monad can
-be used instead of \textsf{\color{ACMDarkBlue} let} binding. Rather than write
-\begin{center}
-  $\letIn{x}{e_1}{\letIn{y}{e_2}{e_3}}$ \hspace{5mm} we can write \hspace{5mm} $[e_3 \mid x \leftarrow e_1;\ y \leftarrow e_2]^{\textsf{Id}}$.
-\end{center}
+\textsf{List} and \textsf{Maybe} are relatively simple monads, but are a couple that are even
+simpler. The most basic monad is just an identity---it does nothing. This monad is almost not
+worth mentioning, but it does have one cute use-case: comprehension syntax for the identity monad
+can be used instead of \textsf{\color{ACMDarkBlue} let} binding. We can write
+\[ [e_3 \mid x \leftarrow e_1;\ y \leftarrow e_2]^{\textsf{Id}} \]
+instead of
+\[ \letIn{x}{e_1}{\letIn{y}{e_2}{e_3}} \]
 There is no real reason to prefer this syntax, so I will continue to use
 $\textsf{\color{ACMDarkBlue} let}$, but it is a fun observation.
 
 A slight variation on the identity monad, the {\em strictness} monad, does actually have some
-interesting uses. Assuming a call-by-name base language, the strictness monad would provide
+interesting uses. Assuming a call-by-name base language, the strictness monad provides
 control over evaluation order by altering the definition of $\textsf{map}$ to force the
-evaluation of the argument $\overline{x}$. Statements in a \textsf{Str} comprehension would
-essentially use call-by-value semantics.
+evaluation of the argument $\overline{x}$.
+\[ [e_3 \mid x \leftarrow e_1;\ y \leftarrow e_2]^{\textsf{Str}} \]
+works like
+\[ \letIn{!x}{e_1}{\letIn{!y}{e_2}{e_3}} \]
+where $\letIn{!x}{e_1}{e_2}$ forces the evaluation of $e_1$ before assigning to $x$. \textsf{Str}
+comprehensions give access to call-by-value semantics as-needed, without changing the underlying
+language.
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
@@ -685,26 +699,49 @@ essentially use call-by-value semantics.
   \end{tabular}
   }
 \end{center}
-\vfill
+\bigskip
 
 \subsubsection{State}
 The \textsf{State} monad makes enables code that {\em looks} stateful, even though there are no
-actual references under the hood. The state monad is defined above, assuming some state type
-$\sigma$. As with many monads, the real magic comes from auxiliary operations:
+actual references under the hood. For the definition, I assume a fixed type $\sigma$ of states,
+and the type $\sigma \to (\alpha,\, \sigma)$ says that each stateful computation takes a state as
+input and produces a {\em result} of type $\alpha$ along with a new state.
+
+Since state is such an important and interesting monad, we should look at the operations in a bit
+of detail. As usual, \textsf{unit} is the simplest, simply injecting a value into a stateful
+computation; the state stays the same, and the result is the argument passed to \textsf{unit}.
+The \textsf{map} operation takes a computation, runs it, and then applies a function to the
+result value. Finally, \textsf{join} runs a computation which results in {\em another}
+computation and then it runs that computation to get a final result. These operations together
+mean that state comprehensions act like imperative code, with state handled implicitly.
+
+As with many monads, interesting programs in the state-monad make use of some auxiliary
+operations:
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{get}$ & $=$ & $\lambdaE{s}{(s,\, s)}$ \\
-    $\textsf{put}~s'$ & $=$ & $\lambdaE{s}{(x,\, s')}$
+    $\textsf{put}~s'$ & $=$ & $\lambdaE{s}{((),\, s')}$
   \end{tabular}
 \end{center}
-These can be used to write the expression
+The \textsf{get} operation accesses the state, and the \textsf{put} operation sets the state.
+These can be used to write a program like
 \[
-  [k \mid i \leftarrow \textsf{get};\ \_ \leftarrow \textsf{put}~(i + 3);\ j \leftarrow
-  \textsf{get};\ \_ \leftarrow \textsf{put}~(j * 7);\ k \leftarrow \textsf{get}]^{\textsf{State}}
+  p = [k \mid i \leftarrow \textsf{get};\ \_ \leftarrow \textsf{put}~(i + 3);\ j \leftarrow
+  \textsf{get};\ \_ \leftarrow \textsf{put}~(j * 7);\ k \leftarrow \textsf{get}]^{\textsf{State}},
 \]
-which simulates a stateful computation; it can be run to compute the value $42$ (technically
-$(42,\, 42)$).
-\outline{could say more}
+which simulates a simple stateful computation. We can call $p~3$ (choosing $3$ as the initial
+state) to get the pair $(42,\, 42)$. If we expand the comprehension syntax and monad operation
+definitions,
+\begin{align*}
+\lambda s_0.\ & \textsf{\color{ACMDarkBlue}let}~(i,\, s_1) = \textsf{get}~s_0~\textsf{\color{ACMDarkBlue}in} \\
+& \textsf{\color{ACMDarkBlue}let}~((),\, s_2) = \textsf{put}~(i + 3)~s_1~\textsf{\color{ACMDarkBlue}in} \\
+& \textsf{\color{ACMDarkBlue}let}~(j,\, s_3) = \textsf{get}~s_2~\textsf{\color{ACMDarkBlue}in} \\
+& \textsf{\color{ACMDarkBlue}let}~((),\, s_4) = \textsf{put}~(j * 7)~s_3~\textsf{\color{ACMDarkBlue}in} \\
+& \textsf{\color{ACMDarkBlue}let}~(k,\, s_5) = \textsf{get}~s_4~\textsf{\color{ACMDarkBlue}in} \\
+& (k,\, s_5),
+\end{align*}
+we can see that the state paramaters $s_0$, $s_1$, etc. are being passed from one expression to
+the next, tracking the state as it evolves.
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
@@ -715,7 +752,7 @@ $(42,\, 42)$).
   \end{tabular}
   }
 \end{center}
-\vfill
+\bigskip
 
 \subsubsection{Reader} (Also known as {\em State Reader}.)
 The \textsf{Reader} monad is a simplification of the \textsf{State} monad that does not allow the
@@ -740,30 +777,36 @@ functions and thus have a clearly delimited scope.
   \end{tabular}
   }
 \end{center}
-\vfill
+\bigskip
 
 \subsubsection{Nondeterminism} (Also known as {\em Set}.)
-The nondeterminism monad enables direct-style programming of nondeterministic algorithms. It
-avoids the messiness of a random number generator \outline{fix this on rewrite} by keeping track
-of all possible values at once. Together with auxiliary operators,
+The nondeterminism monad enables direct-style programming of nondeterministic algorithms, much
+like the \textsf{triple} example from Section \ref{sec:danvy:nondet}. A nondeterministic value is
+really a set of values, corresponding to each of the results that are possible outcomes of the
+nondeterministic computation. We define the same operators that we saw before:
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{fail}$ & $=$ & $\varnothing$ \\
     $\textsf{flip}$ & $=$ & $\{\textsf{\color{ACMDarkBlue} true},\, \textsf{\color{ACMDarkBlue} false}\}$,
   \end{tabular}
 \end{center}
-this monad can be extremely useful. \outline{could say more}
+We can \textsf{fail} by returning the empty set---there are no possible outcomes---and we can
+also \textsf{flip} between \textsf{\color{ACMDarkBlue} true} and \textsf{\color{ACMDarkBlue}
+false} as expected.
+
+The monad operations keep track of all possible outcomes at a given point in the program, but
+programs can be written as if there is only one path.
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
-    $\textsf{type ND}$~$\alpha$ & $=$ & $2^\alpha$ \\
+    $\textsf{type ND}$~$\alpha$ & $=$ & $\mathcal{P}(\alpha)$ \\
     $\map{ND}{f}{\overline{x}}$ & $=$ & $\{f~x \mid x \in \overline{x}\}$ \\
     $\unit{ND}{x}$ & $=$ & $\{x\}$ \\
     $\join{ND}{\doverline{x}}$ & $=$ & $\bigcup \doverline{x}$
   \end{tabular}
   }
 \end{center}
-\vfill
+\bigskip
 
 \subsubsection{Parser}
 Finally, here is a more complicated monad: \textsf{Parser}. Parsers can be seen as a combination
@@ -787,7 +830,6 @@ area~\cite{willis2020staged}.
   \end{tabular}
   }
 \end{center}
-\vfill
 
 \subsection{Translation}
 Since monads can be used to replicate a variety of effects in a pure way, it would be nice if
