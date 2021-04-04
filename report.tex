@@ -564,22 +564,14 @@ Technically this does inject a value into a list, but it is not the simplest way
   (\textsf{join}^{\textsf{List}} \circ \textsf{unit}^{\textsf{List}})~[3] = [3,\, 3,\, 3,\, 3,\, 3] \neq \textsf{id}~[3]. \\
 \]
 
-The \textsf{join} operation can be used to define special kind of function composition called
-{\em Kleisli composition}. Given a functor $F$ and two functions $f: \beta \to F~\gamma$ and $g:
-\alpha \to F~\beta$, we can write \[ f \circ_F g = \textsf{join}^F \circ \textsf{map}^F~f \circ g
-\] that composes them together while properly keeping track of $F$. This is useful in programming
-because it means that monadic operations like $f$ and $g$ can be built up individually and
-composed together to build larger programs. A very similar construction can also yield the
-``\textsf{bind}'' (or ``\textsf{>>=}'') definition of monads that is more common in modern
-programming languages. Though these alternative views of monads are probably more useful for
-programming, they are slightly harder to work with for theory, so I will continue to use Wadler's
-notation.
-
 All of this background on monads and their operations is important, but in practice using these
 operations directly does not make for particularly elegant code. In the next section, I explore
 Wadler's use of {\em comprehensions} to make programming with monads much more intuitive.
 
 \subsection{Comprehensions}
+{\em Comprehending Monads} does more than just explain monads. As the name cleverly suggests, the
+paper develops a notation for monadic computations that is based on list comprehensions.
+
 List comprehensions are based on set-builder notation (e.g. $\{n + 1 \mid n \in \mathbb{N}\}$)
 and were first introduced to programming by the SETL language in the
 1960s~\cite{schwartz2012programming}. Since then, list comprehensions have become ubiquitous,
@@ -587,53 +579,54 @@ appearing in many modern languages including Racket, Python, and even C++ (with 
 operator overloading). Comprehensions are a convenient way of building lists from other lists,
 for example a construction like
 \[ [(x,\, y) \mid x \leftarrow \overline{x};\ y \leftarrow \overline{y}]^{\textsf{List}} \]
-computes the Cartesian product of $\overline{x}$ and $\overline{y}$. The equivalent set-builder
+computes the Cartesian product of $\overline{x}$ and $\overline{y}$. The analogous set-builder
 construction looks like
 \[ \{(x,\, y) \mid x \in X \wedge y \in Y\}. \]
 
-Wadler starts off by adding a formal syntax for list comprehensions to a standard lambda calculus:
-\begin{align*}
- e &\Coloneqq \cdots \mid [e \mid q] \\
- q &\Coloneqq \Lambda \mid x \leftarrow e \mid (q_1;\ q_2)
-\end{align*}
-The symbol $q$ stands for {\em qualifiers}, which can be empty (denoted $\Lambda$), a binder for
-a variable $x$, or a composition of two qualifiers. List comprehension syntax is defined by the
+List comprehensions have the form $[e \mid q]$, where $q$ is called a {\em qualifier}. Wadler
+defined the syntax of qualifiers as:
+\[ q \Coloneqq \Lambda \mid x \leftarrow e \mid (q_1;\ q_2) \]
+Qualifiers can be empty (denoted $\Lambda$), a binder for a variable $x$, or a composition of two
+qualifiers. This notation can be a bit heavy, so Wadler usually ``$[e]$'' instead of ``$[e \mid
+\Lambda]$,'' and he proves that qualifier composition is associative so he can write ``$[e \mid
+q_1;\ q_2]$'' instead of $[e \mid (q_1;\ q_2)]$.
+
+{\em Comprehending Monads} centers around the observation that lists are not the only structure
+for which comprehensions make sense. We can characterize behavior of list comprehensions with
 following rules:
 \begin{align*}
   [e \mid \Lambda] &= \textsf{singleton}~e \\
   [e_1 \mid x \leftarrow e_2] &= \textsf{map}~(\lambdaE{x}{e_1})~e_2 \\
   [e \mid (q_1;\ q_2)] &= \textsf{flatten}~[[e \mid q_2] \mid q_1]
 \end{align*}
-This notation can be a bit heavy, so Wadler usually writes ``$[e]$'' instead of ``$[e \mid
-\Lambda]$,'' and he proves that qualifier composition is associative so he can write ``$[e \mid
-q_1;\ q_2]$'' instead of $[e \mid (q_1;\ q_2)]$.
+Since \textsf{singleton} is $\textsf{unit}^{\textsf{List}}$ and \textsf{flatten} is
+$\textsf{join}^{\textsf{List}}$, we can try to re-interpret comprehensions for any monad.
 
-{\em Comprehending Monads} centers around the observation that lists are not the only structure
-for which comprehensions make sense. Since \textsf{singleton} is $\textsf{unit}^{\textsf{List}}$
-and \textsf{flatten} is $\textsf{join}^{\textsf{List}}$, we can try to re-interpret
-comprehensions for any monad. Wadler observed that every monad \textsf{M} has an associated monad
-comprehension given by the following rules:
+Wadler defined a lambda calculus with {\em monad comprehension} syntax:
+\begin{align*}
+ e &\Coloneqq \cdots \mid [e \mid q]^{\textsf{M}} \\
+ q &\Coloneqq \Lambda \mid x \leftarrow e \mid (q_1;\ q_2)
+\end{align*}
+For any monad \textsf{M} the monad comprehension syntax is defined in terms of the following rules:
 \begin{align*}
   [e \mid \Lambda]^{\textsf{M}} &= \unit{M}{e} \\
   [e_1 \mid x \leftarrow e_2]^{\textsf{M}} &= \map{M}{(\lambdaE{x}{e_1})}{e_2} \\
-  [e \mid (q_1;\ q_2)]^{\textsf{M}} &= \join{M}{[[e \mid q_2]^{\textsf{M}} \mid q_1]^{\textsf{M}}} \\
+  [e \mid (q_1;\ q_2)]^{\textsf{M}} &= \join{M}{[[e \mid q_2]^{\textsf{M}} \mid q_1]^{\textsf{M}}}
 \end{align*}
-This is how we arrive at the \textsf{Maybe} comprehension from Section \ref{sec:introduction},
+The empty qualifier simply injects $e$ into the monad using \textsf{unit}. The binding qualifier
+defines a function: if $e_2$ produces some monadic value, the result of the comprehension is
+$\lambdaE{x}{e_1}$ mapped over that value. Finally, qualifier composition translates to a nested
+comprehension which is flattened using \textsf{join}. Note that while Wadler opts to extend the
+language with comprehensions, they could instead be implemented as syntactic sugar---in other
+words, they can be implemented as surface syntax and omitted from the abstract syntax.
+
+Comprehensions can be used for computations like the \textsf{Maybe} comprehension from Section
+\ref{sec:introduction},
 \[
   [ i / j \mid i \leftarrow [84]^{\textsf{Maybe}} ;\ j \leftarrow \ifThenElse{n = 0}{\textsf{Nothing}}{[n]^{\textsf{Maybe}}} ]^{\textsf{Maybe}}
 \]
 which cleanly handles the fact that the expression binding $j$ might fail, without introducing
 significant control-flow overhead.
-
-Monad comprehensions were the first step towards the ``do--notation'' that is popular in Haskell.
-\[ \textsf{\color{ACMDarkBlue} do}\ \{\ i \leftarrow \unit{Maybe}{84};\ j \leftarrow
-(\ifThenElse{n = 0}{\nothing}{\unit{Maybe}{n}});\ \unit{Maybe}{i/j}\ \}, \] The distinctions
-between comprehension syntax and do--notation are mostly cosmetic. When using do--notation,
-programmers write ``$\unit{Maybe}{w}$'' (or more idiomatically ``$\textsf{return}~e$'') instead
-of $[e]^{\textsf{M}}$. Also rather than put a return value at the front of the comprehension,
-do--blocks evaluate to their final expression. For the remainder of this paper I will stick to
-comprehension syntax, but programming-focused monad examples usually use something closer to
-do--notation.
 
 \subsection{Examples of Monads} \label{sec:monad-examples}
 Wadler presents a whole zoo of monads in his paper; exploring those structures provides valuable
@@ -846,8 +839,37 @@ streamline the implementation of a compiler or interpreter.
 % \end{align*}
 % This is a more obscure translation, but it is useful when the source language is call-by-name.
 
-\outline{redo} These translations mark the last bit of background that we need; now we can start to explore the
-connections between monads and delimited continuations.
+\subsection{Other Formulations of Monads}
+Before moving on, I want to quickly address some other formulations of monads that have become
+more popular since {\em Comprehending Monads} was published.
+
+A monad's \textsf{join} operation can be used to define special kind of function composition
+called {\em Kleisli composition}. Given a functor \textsf{F} and two functions $f: \beta \to
+\textsf{F}~\gamma$ and $g: \alpha \to \textsf{F}~\beta$, we can write
+\[ f \circ_\textsf{F} g = \textsf{join}^\textsf{F} \circ \textsf{map}^\textsf{F}~f
+\circ g \]
+that composes them together while properly keeping track of $\textsf{F}$. This is useful in
+programming because it means that monadic operations like $f$ and $g$ can be built up
+individually and composed together to build larger programs. A very similar construction can also
+yield the ``\textsf{bind}'' (or ``\textsf{>>=}'') definition of monads that is more common in
+modern programming languages.
+
+The \textsf{bind} definition of monads admits syntactic sugar called ``do--notation'', which is
+popular in Haskell. Do--notation is actually very similar to monad comprehension syntax:
+\[
+  \textsf{\color{ACMDarkBlue} do}\ \{\ i \leftarrow \unit{Maybe}{84};\ j \leftarrow
+(\ifThenElse{n = 0}{\nothing}{\unit{Maybe}{n}});\ \unit{Maybe}{i/j}\ \}
+\]
+The distinctions between comprehension syntax and do--notation are mostly cosmetic. When using
+do--notation, programmers write ``$\unit{Maybe}{w}$'' (or more idiomatically
+``$\textsf{return}~e$'') instead of $[e]^{\textsf{M}}$. Also rather than put a return value at
+the front of the comprehension, do--blocks evaluate to their final expression. For the remainder
+of this paper I will stick to comprehension syntax, but programming-focused monad examples
+usually use something closer to do--notation.
+
+For the remainder of my presentation I continue to use monad comprehension syntax, but these
+alternative notations and definitions are useful for further reading on monads. Next, we examine
+examples of monads that are defined using delimited continuations.
 
 \section{Common Design Patterns} \label{sec:patterns}
 I said in Section \ref{sec:introduction} that both delimited continuations and monads abstract
