@@ -27,12 +27,13 @@
   \overline{\copy0}%
 }
 
+\newcommand{\kw}[1]{\textsf{\color{ACMDarkBlue} #1}}
 \newcommand{\ifThenElse}[3]{\textsf{\color{ACMDarkBlue}if}~#1~\textsf{\color{ACMDarkBlue}then}~#2~\textsf{\color{ACMDarkBlue}else}~#3}
 \newcommand{\caseOf}[2]{\textsf{\color{ACMDarkBlue} case}~#1~\textsf{\color{ACMDarkBlue}of}~\{~#2~\}}
 \newcommand{\letIn}[3]{\textsf{\color{ACMDarkBlue}let}~#1 = #2~\textsf{\color{ACMDarkBlue}in}~#3}
 \newcommand{\shift}[2]{\textsf{\color{ACMDarkBlue}shift}~#1~\textsf{\color{ACMDarkBlue}in}~#2}
 \newcommand{\callcc}[2]{\textsf{\color{ACMDarkBlue}call/cc}~#1~\textsf{\color{ACMDarkBlue}in}~#2}
-\newcommand{\reset}[1]{\langle #1 \rangle}
+\newcommand{\reset}[1]{\kw{reset}~#1}
 \newcommand{\lambdaE}[2]{\lambda #1.\, #2}
 \newcommand{\just}[1]{\textsf{Just}~#1}
 \newcommand{\nothing}{\textsf{Nothing}}
@@ -128,40 +129,40 @@ programming languages community. These operators were first presented in {\em Ab
 Control} by \citet{danvy1990abstracting}, and they are one of the many tools used to manipulate
 program continuations.
 
-A {\em continuation} is a first-class representation of the ``rest'' of a computation. For
-example, when evaluating the sub-expression ``$2$'' in the expression
+A {\em continuation} is a first-class representation of the context around a computation. For
+example, when evaluating the sub-expression ``$2$'' in the program
 \[ \letIn{i}{84}{\letIn{j}{2}{i / j}}, \]
 we say the {\em context} is
 \[ \letIn{i}{84}{\letIn{j}{\_}{i / j}}, \]
 and the continuation, $k$, is
 \[ k = \lambdaE{x}{\letIn{i}{84}{\letIn{j}{x}{i / j}}}. \]
 The continuation captures the context as a function, which can be used as a first-class value.
-Danvy and Filinski present two operators for manipulating continuations: {\em shift} (written
-``$\shift{k}{e}$'') and {\em reset} (written ``$\reset{e}$''). Reset delimits the context, and
-shift packages that context as a continuation. For example, we can use shift and reset to extract
-the continuation from above:
+Danvy and Filinski present two operators for manipulating continuations: ``$\shift{k}{e}$'' and
+``$\reset{e}$.'' The \kw{reset} operation delimits a context, and \kw{shift} packages that
+context as a continuation. For example, we can use \kw{shift} and \kw{reset} to extract the
+continuation from above:
 \begin{align*}
-  & \reset{\letIn{i}{84}{\letIn{j}{(\shift{k}{k~2})}{i / j}}} \\
+  & \reset{(\letIn{i}{84}{\letIn{j}{(\shift{k}{k~2})}{i / j}})} \\
   \rightarrow\ & \letIn{k}{(\lambdaE{x}{\letIn{i}{84}{\letIn{j}{x}{i / j}}})}{k~2}
 \end{align*}
 We replaced the expression $2$ with $\shift{k}{k~2}$, which says ``capture the context as $k$ and
-then apply that to $2$,'' and we wrapped the whole computation in $\reset{\cdot}$ to delimit the
+then apply that to $2$,'' and we wrapped the whole computation in \kw{reset} to delimit the
 context. The result is the same as the original expression, but the continuation is made
-explicit. In that example the shift body just applies $k$, but the shift body can do anything. In
+explicit. In that example the \kw{shift} body just applies $k$, but it can do anything. In
 particular, if $k$ is not used at all
-\[ \reset{\letIn{i}{84}{\letIn{j}{(\shift{k}{\textsf{Nothing}})}{i / j}}} \]
+\[ \reset{(\letIn{i}{84}{\letIn{j}{(\shift{k}{\textsf{Nothing}})}{i / j}})} \]
 the result is essentially an {\em exception}: the context is thrown away and the result of the
 entire computation is just \textsf{Nothing}. This flexibility makes delimited continuations
 powerful but also notoriously difficult for newcomers to reason about.
 
-Perhaps even more ingrained in programming languages research is the {\em monad}. Monads are
-notorious being explained poorly, to the point where people jokingly quote ``a monad is just
-a monoid in the category of endofunctors''~\cite{iry_2009,mac2013categories}---a sentence which
-is incomprehensible even to most community insiders. The Internet is filled with monad tutorials
-that compare the mathematical structure to burritos (tasty, but unhelpful) and other ``more
-accessible'' concepts, but few provide useful explanations. To avoid falling into this trap of
-explaining monads badly, I follow one of the earliest and clearest explanations of monads for
-programming, {\em Comprehending Monads} by \citet{wadler1990comprehending}.
+Another abstraction that is deeply embedded in programming languages literature is the {\em
+monad}. Monads are notorious being explained poorly, to the point where people jokingly quote ``a
+monad is just a monoid in the category of endofunctors''---a sentence which is incomprehensible
+even to most community insiders~\cite{iry_2009,mac2013categories}. The internet is filled with
+monad tutorials that compare the mathematical structure to burritos (tasty, but unhelpful) and
+other ``more accessible'' concepts, but few provide useful explanations. To avoid falling into
+this trap of explaining monads badly, I follow one of the earliest and clearest explanations of
+monads for programming, {\em Comprehending Monads} by \citet{wadler1990comprehending}.
 
 Wadler presents monads using an analogy to list comprehensions like
 \[
@@ -213,8 +214,8 @@ middle-ground and use one unified set of conventions to discuss both papers. Thr
 report, assume that programs are written in a lambda calculus with syntax defined by:
 \begin{align*}
   e \Coloneqq &\ x \mid \lambdaE{x}{e} \mid e_1~e_2 \mid \letIn{x}{e_1}{e_2} \\
-            | &\ \textsf{\color{ACMDarkBlue} true} \mid \textsf{\color{ACMDarkBlue} false} \mid \ifThenElse{e_1}{e_2}{e_3} \mid n \mid e_1 + e_2 \\
-            | &\ (e_1,\, e_2) \mid \textsf{\color{ACMDarkBlue} fst}~e \mid \textsf{\color{ACMDarkBlue} snd}~e \mid \cdots
+            | &\ \kw{true} \mid \kw{false} \mid \ifThenElse{e_1}{e_2}{e_3} \mid n \mid e_1 + e_2 \\
+            | &\ (e_1,\, e_2) \mid \kw{fst}~e \mid \kw{snd}~e \mid \cdots
 \end{align*}
 The core calculus is made up of variables, $x$, lambda abstractions, $\lambdaE{x}{e}$, and
 function application $e_1~e_2$. Let-binding makes presentation clearer, so I assume we have that
@@ -237,7 +238,7 @@ CPS translation, $\cps{\cdot}$, for our basic lambda calculus with Booleans and 
   \cps{x} &= \lambdaE{\kappa}{\kappa~x} \\
   \cps{\lambdaE{x}{e}} &= \lambdaE{\kappa}{\kappa~(\lambdaE{x}{\cps{e}})} \\
   \cps{e_1~e_2} &= \lambdaE{\kappa}{\cps{e_1}~(\lambdaE{f}{\cps{e_2}~(\lambdaE{x}{f~x~\kappa})})} \\
-  \cps{\textsf{\color{ACMDarkBlue}true}} &= \lambdaE{\kappa}{\kappa~\textsf{\color{ACMDarkBlue} true}} \\
+  \cps{\kw{true}} &= \lambdaE{\kappa}{\kappa~\kw{true}} \\
   \cps{\ifThenElse{e_1}{e_2}{e_3}} &= \lambdaE{\kappa}{\cps{e_1}~(\lambdaE{b}{\ifThenElse{b}{\cps{e_2}~\kappa}{\cps{e_3}~\kappa}})}
 \end{align*}
 This translation extracts every evaluation context---essentially every individual sub-term of a
@@ -267,13 +268,13 @@ program context as $k$ and then runs $e$, allowing the programmer to arbitrarily
 evaluation as they see fit. For example,
 \[ \callcc{k}{1} \]
 aborts the computation, returning the value $1$, and
-\[ \callcc{k}{(\textsf{\color{ACMDarkBlue} print}~\stringE{foo};\ k~10)} \]
+\[ \callcc{k}{(\kw{print}~\stringE{foo};\ k~10)} \]
 pauses the computation, prints ``foo'', and then resumes computation with the value 10.
 Unfortunately, many have argued that \textsf{call/cc} is {\em too} powerful. Consider the popular
 Yin-Yang Puzzle:
 \begin{align*}
-& \textsf{\color{ACMDarkBlue} let}\ \textsf{yin}\ =\ (\lambdaE{c}{(\textsf{\color{ACMDarkBlue} print}~\stringE{@};\ c)})~(\callcc{k}{k})~\textsf{\color{ACMDarkBlue} in} \\
-& \textsf{\color{ACMDarkBlue} let}\ \textsf{yang}\ =\ (\lambdaE{c}{(\textsf{\color{ACMDarkBlue} print}~\stringE{*};\ c)})~(\callcc{k}{k})~\textsf{\color{ACMDarkBlue} in} \\
+& \kw{let}\ \textsf{yin}\ =\ (\lambdaE{c}{(\kw{print}~\stringE{@};\ c)})~(\callcc{k}{k})~\kw{in} \\
+& \kw{let}\ \textsf{yang}\ =\ (\lambdaE{c}{(\kw{print}~\stringE{*};\ c)})~(\callcc{k}{k})~\kw{in} \\
 & \textsf{yin}~\textsf{yang}
 \end{align*}
 What does this confusing mess of continuations do? Apparently it counts. This program prints
@@ -288,7 +289,7 @@ and his approach did not admit a straightforward translation into a standard lam
 This was the impetus for Danvy and Filinski's statically delimited continuations.
 
 \subsection{Delimited Continuations and ECPS}
-In {\em Abstracting Control}, Danvy and Filinski introduce the ``shift'' and ``reset'' operations
+In {\em Abstracting Control}, Danvy and Filinski introduce the \kw{shift} and \kw{reset} operations
 mentioned in Section \ref{sec:introduction}, which provide a more usable alternative to
 \textsf{call/cc}. We extend our lambda calculus:
 \[
@@ -302,33 +303,33 @@ and Filinski call the new translation {\em extended continuation-passing style} 
 \end{align*}
 The equation for $\reset{e}$ translates $e$ and extracts its final value by applying it to
 \textsf{id}. This means that any continuation manipulation done by $e$ does not leak outside of
-the scope of the reset, so we say that reset ``delimits'' the continuation. The translation for
-shift gives $e$ access to its continuation, $\kappa$, via the variable $k$.
+the scope of the \kw{reset}, so we say that \kw{reset} ``delimits'' the continuation. The
+translation for \kw{shift} gives $e$ access to its continuation, $\kappa$, via the variable $k$.
 
-Together, shift and reset provide an elegant interface for working with continuations. For
-example, take the following expression and its evaluation:
+Together, \kw{shift} and \kw{reset} provide an elegant interface for working with continuations.
+For example, take the following expression and its evaluation:
 \begin{align*}
-& 1 + \reset{10 + \shift{k}{k~(k~100)}} \Rightarrow \\
+& 1 + \reset{(10 + \shift{k}{k~(k~100)})} \Rightarrow \\
 & 1 + (10 + (10 + 100)) \Rightarrow \\
 & 121
 \end{align*}
-The continuation ``$k = \lambdaE{x}{10 + x}$'' is captured by the shift operator, since ``$10 +
-\shift{k}{\dots}$'' is within a context delimited by reset. The outer ``$1 +$'' is not captured
-because it is outside of the reset. The function $k$ is applied twice to $100$, resulting in
-$120$, and then we add $1$ to get $121$.
+The continuation ``$k = \lambdaE{x}{10 + x}$'' is captured by the \kw{shift} operator, since
+``$10 + \shift{k}{\dots}$'' is within a context delimited by \kw{reset}. The outer ``$1 +$'' is
+not captured because it is outside of the \kw{reset}. The function $k$ is applied twice to $100$,
+resulting in $120$, and then we add $1$ to get $121$.
 
 \subsection{A Denotational Semantics}
-Danvy and Filinski point out that the ECPS translation, with rules for shift and reset, is no
-longer truly in continuation-passing style. In particular, the rule for shift means that the
-resulting program might not enforce strict call-by-value semantics, since the translation of
-shift introduces a redex $\kappa'~(\kappa~x)$. This could be solved by translating the result a
-second time, but we can use this as an opportunity to take a step back and look at another way of
-defining the semantics of our calculus with shift and reset.
+Danvy and Filinski point out that the ECPS translation, with rules for \kw{shift} and \kw{reset},
+is no longer truly in continuation-passing style. In particular, the rule for \kw{shift} means
+that the resulting program might not enforce strict call-by-value semantics, since the
+translation of \kw{shift} introduces a redex $\kappa'~(\kappa~x)$. This could be solved by
+translating the result a second time, but we can use this as an opportunity to take a step back
+and look at another way of defining the semantics of our calculus with \kw{shift} and \kw{reset}.
 
 In addition to the ECPS translation, Danvy and Filinski give a denotational translation. Whereas
 the ECPS translation is purely syntactic, this transformation is {\em semantic} and maps every
 program to a mathematical object in a given {\em domain}. In this case the domain contains
-Booleans (since we have \textsf{\color{ACMDarkBlue}true} and \textsf{\color{ACMDarkBlue}false} as
+Booleans (since we have \kw{true} and \kw{false} as
 base values) and computable functions. This is common practice in programming languages
 literature and hearkens back to the origin of continuations~\cite{strachey2000continuations}.
 Assuming $\textsf{Ans}$ is a suitable domain of final answers, we define:
@@ -342,27 +343,27 @@ Assuming $\textsf{Ans}$ is a suitable domain of final answers, we define:
 \end{center}
 The variable environment, $\rho$, maps variables to domain values, $\gamma$ is a
 ``meta''-continuation that captures the continuation {\em outside} of the closest enclosing
-reset, and $\kappa$ is the continuation that we are used to (inside of the closest reset). The
-denotational semantics is given by the equations:
+\kw{reset}, and $\kappa$ is the continuation that we are used to (inside of the closest
+\kw{reset}). The denotational semantics is given by the equations:
 \begin{align*}
   \denote{x}~\rho~\kappa~\gamma &= \kappa~(\rho[x])~\gamma \\
   \denote{\lambdaE{x}{e}}~\rho~\kappa~\gamma &= \kappa~(\lambdaE{v}{\denote{e}~(\rho[x \mapsto v])})~\gamma \\
   \denote{e_1~e_2}~\rho~\kappa~\gamma &=
     \denote{e_1}~\rho~(\lambdaE{f}{\denote{e_2}~\rho~(\lambdaE{x}{f~x~\kappa})})~\gamma \\
-  \denote{\textsf{\color{ACMDarkBlue}true}}~\rho~\kappa~\gamma &= \kappa~\textsf{\color{ACMDarkBlue} true}~\gamma \\
+  \denote{\kw{true}}~\rho~\kappa~\gamma &= \kappa~\kw{true}~\gamma \\
   \denote{\ifThenElse{e_1}{e_2}{e_3}}~\rho~\kappa~\gamma &= 
     \denote{e_1}~\rho~(\lambdaE{b}{\ifThenElse{b}{\denote{e_2}~\rho~\kappa}{\denote{e_3}~\rho~\kappa}})~\gamma \\
   \denote{\shift{k}{e}}~\rho~\kappa~\gamma &=
     \denote{e}~(\rho[k \mapsto \lambdaE{x}{\lambdaE{\kappa'}{\lambdaE{\gamma'}{\kappa~x~(\lambdaE{w}{\kappa'~w~\gamma'})}}}])~(\lambdaE{x}{\lambdaE{\gamma''}{\gamma''~x}})~\gamma \\
   \denote{\reset{e}}~\rho~\kappa~\gamma &= \denote{e}~\rho~(\lambdaE{x}{\lambdaE{\gamma'}{\gamma'~x}})~(\lambdaE{x}{\kappa~x~\gamma})
 \end{align*}
-It is safe to ignore the $\gamma$ arguments for all rules other than the ones for shift and
-reset, since $\gamma$ can be $\eta$-reduced away (since $\lambdaE{x}{f~x}$ is equivalent to $f$).
-Without $\gamma$, the first five equations look a lot like the standard CPS translation, just
-lifted to a semantic domain. The meta-continuations are used in the shift and reset rules to
-capture the outer continuation as a computable function. Remember that the constructions on the
-right-hand side are part of a meta-language and represent mathematical objects rather than
-concrete syntax. Our continuations are embedded in the meta-theory.
+It is safe to ignore the $\gamma$ arguments for all rules other than the ones for \kw{shift} and
+\kw{reset}, since $\gamma$ can be $\eta$-reduced away (since $\lambdaE{x}{f~x}$ is equivalent to
+$f$). Without $\gamma$, the first five equations look a lot like the standard CPS translation,
+just lifted to a semantic domain. The meta-continuations are used in the \kw{shift} and
+\kw{reset} rules to capture the outer continuation as a computable function. Remember that the
+constructions on the right-hand side are part of a meta-language and represent mathematical
+objects rather than concrete syntax. Our continuations are embedded in the meta-theory.
 
 All of this is important for theoretical work on this language, but the syntactic ECPS
 transformation is more useful for concrete implementations. Next, we return to the ECPS
@@ -370,14 +371,14 @@ translation and explore ways that it can be made more efficient.
 
 \subsection{Metacircular Interpreters}
 A {\em metacircular interpreter} is a powerful tool for expressing a language's
-semantics~\cite{reynolds1972definitional}. In the case of our shift-reset language, the
-metacircular interpreter looks a lot like the ECPS translation, but it does a bit more work by
-translating constructs an executable meta-language rather than generating syntax directly.
+semantics~\cite{reynolds1972definitional}. In the case of our \kw{shift}--\kw{reset} language,
+the metacircular interpreter looks a lot like the ECPS translation, but it does a bit more work
+by translating constructs an executable meta-language rather than generating syntax directly.
 
 The meta-language for this interpreter, is the same lambda calculus we have been working with,
-but without shift or reset. We use a simple {\em quoting} mechanism to specify which parts of the
-output are executable code and which are concrete syntax. The code in black is the executable
-interpreter, while the $\quoteE{\text{quoted}}$ code is concrete syntax output. We use
+but without \kw{shift} or \kw{reset}. We use a simple {\em quoting} mechanism to specify which
+parts of the output are executable code and which are concrete syntax. The code in black is the
+executable interpreter, while the $\quoteE{\text{quoted}}$ code is concrete syntax output. We use
 $\unquoteE{\text{unquote brackets}}$ to splice computations into quoted segments. The translation
 is defined as:
 \begin{align*}
@@ -385,7 +386,7 @@ is defined as:
   \cpsm{\lambdaE{x}{e}} &=
     \lambdaE{\kappa}{\kappa~\quoteE{\lambdaE{\unquoteE{x}}{\lambdaE{k}{\unquoteE{\cpsm{e}~(\lambdaE{a}{\quoteE{k~\unquoteE{a}}})}}}}} \\
   \cpsm{e_1~e_2} &= \lambdaE{\kappa}{\cpsm{e_1}~(\lambdaE{f}{\cpsm{e_2}~(\lambdaE{x}{\quoteE{\unquoteE{f}~\unquoteE{x}~(\lambdaE{t}{\unquoteE{\kappa~\quoteE{t}}})}})})} \\
-  \cpsm{\textsf{\color{ACMDarkBlue}true}} &= \lambdaE{\kappa}{\kappa~\textsf{\color{ACMDarkBlue} true}} \\
+  \cpsm{\kw{true}} &= \lambdaE{\kappa}{\kappa~\kw{true}} \\
   \cpsm{\ifThenElse{e_1}{e_2}{e_3}} &= \lambdaE{\kappa}{\cpsm{e_1}~(\quoteE{\lambdaE{b}{\ifThenElse{b}{\unquoteE{\cpsm{e_2}~\kappa}}{\unquoteE{\cpsm{e_3}~\kappa}}}})} \\
   \cpsm{\shift{k}{e}} &= (\lambdaE{\kappa}{\cpsm{e}~\textsf{id}})[k \mapsto \quoteE{\lambdaE{x}{\lambdaE{\kappa'}{\kappa'~\unquoteE{\kappa~\quoteE{x}}}}}] \\
   \cpsm{\reset{e}} &= \lambdaE{\kappa}{\kappa~(\cpsm{e}~\textsf{id})}
@@ -399,15 +400,16 @@ if-statements will produce a concrete term of the form $\lambdaE{b}{\ifThenElse{
 rather than a mathematical object. Representing continuations at the meta-level drastically
 reduces the size of the resulting programs---there are no unnecessary redexes in the output.
 
-It turns out that we can do even better if we include shift and reset in our meta-language. This
-final ECPS translation,
+It turns out that we can do even better if we include \kw{shift} and \kw{reset} in our
+meta-language. This final ECPS translation,
 \begin{align*}
   \cpsmc{x} &= x \\
-  \cpsmc{\lambdaE{x}{e}} &= \quoteE{\lambdaE{\unquoteE{x}}{\lambdaE{\kappa}{\unquoteE{\reset{\quoteE{\kappa~\unquoteE{\cpsmc{e}}}}}}}} \\
+  \cpsmc{\lambdaE{x}{e}} &= \quoteE{\lambdaE{\unquoteE{x}}{\lambdaE{\kappa}{\unquoteE{\reset{(\quoteE{\kappa~\unquoteE{\cpsmc{e}}})}}}}} \\
   \cpsmc{e_1~e_2} &= \shift{\kappa}{\quoteE{\unquoteE{\cpsmc{e_1}}~\unquoteE{\cpsmc{e_2}}~(\lambdaE{t}{\unquoteE{\kappa~\quoteE{t}}})}} \\
-  \cpsmc{\textsf{\color{ACMDarkBlue}true}} &= \textsf{\color{ACMDarkBlue}true} \\
-  \cpsmc{\ifThenElse{e_1}{e_2}{e_3}} &= \shift{\kappa}{\quoteE{\ifThenElse{\unquoteE{\cpsmc{e_1}}}{\unquoteE{\reset{\kappa~\cpsmc{e_2}}}}{\unquoteE{\reset{\kappa~\cpsmc{e_3}}}}}} \\
-  \cpsmc{\shift{k}{e}} &= \shift{\kappa}{\reset{\cpsmc{e}}[k \mapsto \quoteE{\lambdaE{x}{\lambdaE{\kappa'}{\kappa'~\unquoteE{\kappa~\quoteE{x}}}}}]} \\
+  \cpsmc{\kw{true}} &= \kw{true} \\
+  \cpsmc{\ifThenElse{e_1}{e_2}{e_3}} &= \kw{shift}~\kappa~\kw{in} \\
+  &\ \ \quoteE{\ifThenElse{\unquoteE{\cpsmc{e_1}}}{\unquoteE{\reset{(\kappa~\cpsmc{e_2})}}}{\unquoteE{\reset{(\kappa~\cpsmc{e_3})}}}} \\
+  \cpsmc{\shift{k}{e}} &= \shift{\kappa}{(\reset{\cpsmc{e})}[k \mapsto \quoteE{\lambdaE{x}{\lambdaE{\kappa'}{\kappa'~\unquoteE{\kappa~\quoteE{x}}}}}]} \\
   \cpsmc{\reset{e}} &= \reset{\cpsmc{e}}
 \end{align*}
 also avoids unnecessary $\eta$-expansion (i.e., it always produces $f$ instead of
@@ -427,19 +429,18 @@ We start by defining operators \textsf{fail} and \textsf{flip}, which form the b
 nondeterministic computation:
 \begin{align*}
 \textsf{fail}~() &= \shift{k}{\stringE{failure}} \\
-\textsf{flip}~() &= \shift{k}{(k~\textsf{\color{ACMDarkBlue}true};\ k~\textsf{\color{ACMDarkBlue}false};\ \textsf{fail}~())}
+\textsf{flip}~() &= \shift{k}{(k~\kw{true};\ k~\kw{false};\ \textsf{fail}~())}
 \end{align*}
-We can think of \textsf{flip} as flipping a coin (with sides \textsf{\color{ACMDarkBlue}true} and
-\textsf{\color{ACMDarkBlue}false}) and \textsf{fail} as signaling a ``dead-end'' outcome.
+We can think of \textsf{flip} as flipping a coin and \textsf{fail} as signaling a ``dead-end''
+outcome.
 
 Concretely the \textsf{fail} operation acts as an exception. It throws away the continuation and
 returns the string $\stringE{failure}$. The \textsf{flip} operation calls its continuation on
-{\em both} \textsf{\color{ACMDarkBlue}true} and \textsf{\color{ACMDarkBlue}false}, which
-simulates a nondeterministic choice between the two options. This works because the result of the
-nondeterministic computation is actually a sequence of values---all of the possible outcomes.
-When we call \textsf{flip}, the possible options are \textsf{\color{ACMDarkBlue}true} and
-\textsf{\color{ACMDarkBlue}false}, so we continue with both. If later in the computation one of
-those values is undesirable, we can call \textsf{fail}.
+{\em both} \kw{true} and \kw{false}, which simulates a nondeterministic choice between the two
+options. This works because the result of the nondeterministic computation is actually a sequence
+of values---all of the possible outcomes. When we call \textsf{flip}, the possible options are
+\kw{true} and \kw{false}, so we continue with both. If later in the computation one of those
+values is undesirable, we can call \textsf{fail}.
 
 The \textsf{choice} operation builds on \textsf{flip} to simulate a nondeterministic choice of
 positive integers less than a given value.
@@ -451,15 +452,15 @@ Calling ``$\textsf{choice}~2$'' will continue with $2$, then $1$, and then $\str
 Finally, Danvy and Filinski implement the function
 \begin{align*}
 \textsf{triple}~n~s =&  \\
-& \textsf{\color{ACMDarkBlue}let}~i = \textsf{choice}~n~\textsf{\color{ACMDarkBlue}in} \\
-& \textsf{\color{ACMDarkBlue}let}~j = \textsf{choice}~(i - 1)~\textsf{\color{ACMDarkBlue}in} \\
-& \textsf{\color{ACMDarkBlue}let}~k = \textsf{choice}~(j - 1)~\textsf{\color{ACMDarkBlue}in} \\
+& \kw{let}~i = \textsf{choice}~n~\kw{in} \\
+& \kw{let}~j = \textsf{choice}~(i - 1)~\kw{in} \\
+& \kw{let}~k = \textsf{choice}~(j - 1)~\kw{in} \\
 & \ifThenElse{i + j + k = s}{(i,\, j,\, k)}{\textsf{fail}~()},
 \end{align*}
 which finds all triples of distinct positive integers that sum to a given integer $s$. The
 complexity is pushed into \textsf{choice}, so this function is nice and readable. Evaluating the
 expression
-\[ \reset{\textsf{\color{ACMDarkBlue}print}~(\textsf{triple}~9~15)} \]
+\[ \reset{(\kw{print}~(\textsf{triple}~9~15))} \]
 prints all triples of integers up to $9$ that sum to $15$.
 
 The \textsf{triple} example is mostly a toy based on an early benchmark, but these primitives can
@@ -485,7 +486,8 @@ to the ``elements'' of the data structure. For example,
 applies $f$ to all elements of $\overline{x}$ and 
 \[ \map{Maybe}{f}{\overline{x}} \]
 applies $f$ to the value contained in $\overline{x}$, if one exists. (I adopt Wadler's convention
-of writing monadic values with a bar over the variable name.) Map must obey two laws:
+of writing monadic values with a bar over the variable name.) The \textsf{map} operation must
+obey two laws:
 \begin{align*}
   \textsf{map}~\textsf{id} &= \textsf{id} \\
   \textsf{map}~(g \circ f) &= \textsf{map}~g \circ \textsf{map}~f
@@ -661,12 +663,12 @@ sequence computations that might fail (returning \textsf{Nothing}).
 \textsf{List} and \textsf{Maybe} are relatively simple monads, but there are a couple that are even
 simpler. The most basic monad is just an identity---it does nothing. This monad is almost not
 worth mentioning, but it does have one cute use-case: comprehension syntax for the identity monad
-can be used instead of \textsf{\color{ACMDarkBlue} let} binding. We can write
+can be used instead of \kw{let} binding. We can write
 \[ [e_3 \mid x \leftarrow e_1;\ y \leftarrow e_2]^{\textsf{Id}} \]
 instead of
 \[ \letIn{x}{e_1}{\letIn{y}{e_2}{e_3}}. \]
-There is no real reason to prefer this syntax, so I will continue to use
-$\textsf{\color{ACMDarkBlue} let}$, but it is a fun observation.
+There is no real reason to prefer this syntax, so I will continue to use \kw{let}, but it is a
+fun observation.
 
 A slight variation on the identity monad, the {\em strictness} monad, does actually have some
 interesting uses. Assuming a call-by-name base language, the strictness monad provides
@@ -722,11 +724,11 @@ which simulates a simple stateful computation. We can call $p~3$ (choosing $3$ a
 state) to get the pair $(42,\, 42)$. If we expand the comprehension syntax and monad operation
 definitions,
 \begin{align*}
-\lambda s_0.\ & \textsf{\color{ACMDarkBlue}let}~(i,\, s_1) = \textsf{get}~s_0~\textsf{\color{ACMDarkBlue}in} \\
-& \textsf{\color{ACMDarkBlue}let}~((),\, s_2) = \textsf{put}~(i + 3)~s_1~\textsf{\color{ACMDarkBlue}in} \\
-& \textsf{\color{ACMDarkBlue}let}~(j,\, s_3) = \textsf{get}~s_2~\textsf{\color{ACMDarkBlue}in} \\
-& \textsf{\color{ACMDarkBlue}let}~((),\, s_4) = \textsf{put}~(j * 7)~s_3~\textsf{\color{ACMDarkBlue}in} \\
-& \textsf{\color{ACMDarkBlue}let}~(k,\, s_5) = \textsf{get}~s_4~\textsf{\color{ACMDarkBlue}in} \\
+\lambda s_0.\ & \kw{let}~(i,\, s_1) = \textsf{get}~s_0~\kw{in} \\
+& \kw{let}~((),\, s_2) = \textsf{put}~(i + 3)~s_1~\kw{in} \\
+& \kw{let}~(j,\, s_3) = \textsf{get}~s_2~\kw{in} \\
+& \kw{let}~((),\, s_4) = \textsf{put}~(j * 7)~s_3~\kw{in} \\
+& \kw{let}~(k,\, s_5) = \textsf{get}~s_4~\kw{in} \\
 & (k,\, s_5),
 \end{align*}
 we can see that the state parameters $s_0$, $s_1$, etc. are being passed from one expression to
@@ -776,12 +778,11 @@ computation. We define the same operators that we saw before:
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{fail}$ & $=$ & $\varnothing$ \\
-    $\textsf{flip}$ & $=$ & $\{\textsf{\color{ACMDarkBlue} true},\, \textsf{\color{ACMDarkBlue} false}\}$,
+    $\textsf{flip}$ & $=$ & $\{\kw{true},\, \kw{false}\}$,
   \end{tabular}
 \end{center}
 We can \textsf{fail} by returning the empty set---there are no possible outcomes---and we can
-also \textsf{flip} between \textsf{\color{ACMDarkBlue} true} and \textsf{\color{ACMDarkBlue}
-false} as expected.
+also \textsf{flip} between \kw{true} and \kw{false} as expected.
 
 The monad operations keep track of all possible outcomes at a given point in the program, but
 programs can be written as if there is only one path.
@@ -828,7 +829,7 @@ modern programming languages.
 The \textsf{bind} definition of monads admits syntactic sugar called ``do--notation'', which is
 popular in Haskell. Do--notation is actually very similar to monad comprehension syntax:
 \[
-  \textsf{\color{ACMDarkBlue} do}\ \{\ i \leftarrow \unit{Maybe}{84};\ j \leftarrow
+  \kw{do}\ \{\ i \leftarrow \unit{Maybe}{84};\ j \leftarrow
 (\ifThenElse{n = 0}{\nothing}{\unit{Maybe}{n}});\ \unit{Maybe}{i/j}\ \}
 \]
 The distinctions between comprehension syntax and do--notation are mostly cosmetic. When using
@@ -849,20 +850,20 @@ monads from the previous section.
 This presentation was inspired by a blog post by \citet{xia_2019}, which shows how to implement a
 variety of monads using continuation-passing. Following Xia's definitions, I present each pattern
 by defining (1) the primitive operations for the pattern and (2) a \textsf{run} function that
-delimits the scope of the computation using reset.
+delimits the scope of the computation using \kw{reset}.
 
 \subsubsection{Maybe} \hfill {\bf See Section \ref{sec:monad-examples:maybe}}
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
     $\textsf{abort}$ & $=$ & $\shift{k}{\textsf{Nothing}}$ \\
-    $\textsf{run}^{\textsf{Maybe}}~c$ & $=$ & $\reset{\textsf{Just}~c}$
+    $\textsf{run}^{\textsf{Maybe}}~c$ & $=$ & $\reset{(\textsf{Just}~c)}$
   \end{tabular}
   }
 \end{center}
 \medskip
 We have already seen exceptions in the contexts of both continuations and monads already,
-although I have been imprecise when ``throwing an exception'' using shift. This construction
+although I have been imprecise when ``throwing an exception'' using \kw{shift}. This construction
 faithfully simulates the \textsf{Maybe} monad, since its computations either fail and return
 $\nothing$ or succeed with a value $v$ and return $\just{v}$.
 
@@ -893,7 +894,7 @@ non-strict). We do the same trick as before, forcing $e$ and then calling the co
   \begin{tabular}{lll}
     $\textsf{get}$ & $=$ & $\shift{k}{\lambdaE{s}{k~s~s}}$ \\
     $\textsf{put}~s'$ & $=$ & $\shift{k}{\lambdaE{s}{k~()~s'}}$ \\
-    $\textsf{run}^{\textsf{State}}~c~i$ & $=$ & $\reset{(\lambdaE{v}{\lambdaE{s}{v}})~c}~i$
+    $\textsf{run}^{\textsf{State}}~c~i$ & $=$ & $\reset{((\lambdaE{v}{\lambdaE{s}{v}})~c)}~i$
   \end{tabular}
   }
 \end{center}
@@ -909,9 +910,9 @@ scope.
 As with the monadic version, these operations can be used to simulate stateful code. For example,
 this program, which is essentially the same program from Section \ref{sec:monad-examples:state},
 \begin{align*}
-\textsf{run}^{\textsf{State}}~(& \textsf{\color{ACMDarkBlue}let}~i = \textsf{get}~\textsf{\color{ACMDarkBlue}in} \\
+\textsf{run}^{\textsf{State}}~(& \kw{let}~i = \textsf{get}~\kw{in} \\
 & \textsf{put}~(i + 3); \\
-& \textsf{\color{ACMDarkBlue}let}~j = \textsf{get}~\textsf{\color{ACMDarkBlue}in} \\
+& \kw{let}~j = \textsf{get}~\kw{in} \\
 & \textsf{put}~(j * 7); \\
 & \textsf{get})~3
 \end{align*}
@@ -937,27 +938,26 @@ anyway. We just rename \textsf{get} to \textsf{ask} and don't provide a \textsf{
   \framebox[\textwidth]{
   \begin{tabular}{lll}
     $\textsf{fail}$ & $=$ & $\shift{k}{k~\varnothing}$ \\
-    $\textsf{flip}$ & $=$ & $\shift{k}{k~\textsf{\color{ACMDarkBlue} true} \cup k~\textsf{\color{ACMDarkBlue} false}}$ \\
-    $\textsf{run}^{\textsf{ND}}~c$ & $=$ & $\reset{(\lambdaE{v}{\{v\}})~c}$
+    $\textsf{flip}$ & $=$ & $\shift{k}{k~\kw{true} \cup k~\kw{false}}$ \\
+    $\textsf{run}^{\textsf{ND}}~c$ & $=$ & $\reset{((\lambdaE{v}{\{v\}})~c)}$
   \end{tabular}
   }
 \end{center}
 \medskip
 We already saw one way of encoding nondeterminism using continuations, but here is another one
 that is a bit closer to the monadic presentation. We again make use of sets to define the
-primitive operations $\textsf{fail}$ and $\textsf{flip}$: Our implementation of \textsf{run}
-lifts computations into singleton sets, and our operators call the continuation on whatever
-values should be considered---either nothing in the case of \textsf{fail} or both
-$\textsf{\color{ACMDarkBlue} true}$ and $\textsf{\color{ACMDarkBlue} false}$ in the case of
-$\textsf{flip}$.
+primitive operations \textsf{fail} and \textsf{flip}: Our implementation of \textsf{run} lifts
+computations into singleton sets, and our operators call the continuation on whatever values
+should be considered---either nothing in the case of \textsf{fail} or both \kw{true} and
+\kw{false} in the case of \textsf{flip}.
 
 \subsection{Other Monad Implementations}
 A couple of Wadler's monad examples are missing here, but not for any fundamental reason.
 \textsf{List} can be implemented using delimited continuations without issues, but there are a
 number of subtly different ways to do it and the technicalities are not informative.
-\textsf{Parser}s can also be done using shift and reset, but the construction is complex and,
-again, not informative. It would seem that anything that can be done with monads can also be done
-with delimited continuations.
+\textsf{Parser}s can also be done using \kw{shift} and \kw{reset}, but the construction is
+complex and, again, not informative. It would seem that anything that can be done with monads can
+also be done with delimited continuations.
 
 It turns out that with enough effort, this is roughly true! A few years after {\em Abstracting
 Control}, \citet{filinski1994representing} published another paper showing that delimited
@@ -1020,7 +1020,7 @@ In particular, this means that we can use the \textsf{Cont} comprehension to wri
   [x + y \mid x \leftarrow [1];\ y \leftarrow \textsf{reset}~[u + v \mid u \leftarrow [10];\ v \leftarrow \textsf{shift}(\lambdaE{k}{[b \mid a \leftarrow k~100;\ b \leftarrow k~a]})]],
 \]
 which is equivalent to the program
-\[ 1 + \reset{10 + \shift{k}{k~(k~100)}} \]
+\[ 1 + \reset{(10 + \shift{k}{k~(k~100)})} \]
 that we saw when discussing {\em Abstracting Control}. The monad version is a bit more verbose,
 but, critically, neither version relies on manually managing continuation parameters; they are
 both written in a ``direct'' style.
@@ -1039,7 +1039,7 @@ captures the effects of that computation. Here is the translation in full:
   (\lambdaE{x}{e})^* &= [\lambdaE{x}{e^*}]^\textsf{M} \\
   (e_1~e_2)^* &= [y \mid f \leftarrow e_1^*;\ x \leftarrow e_2^*;\ y \leftarrow f~x]^\textsf{M} \\
   (e_1,\, e_2)^* &= [(x, y) \mid x \leftarrow e_1^*;\ y \leftarrow e_2^*]^\textsf{M} \\
-  (\textsf{\color{ACMDarkBlue}fst}~e)^* &= [\textsf{\color{ACMDarkBlue}fst}~x \mid x \leftarrow e^*]^\textsf{M}
+  (\kw{fst}~e)^* &= [\kw{fst}~x \mid x \leftarrow e^*]^\textsf{M}
 \end{align*}
 Each of these rules has a straightforward computational meaning. For example
 \[ (e_1~e_2)^* = [y \mid f \leftarrow e_1^*;\ x \leftarrow e_2^*;\ y \leftarrow f~x]^\textsf{M} \]
@@ -1047,12 +1047,12 @@ says that in order to evaluate a (potentially effectful) application, we evaluat
 then evaluate $e_2$ to $x$, and then evaluate the application ``$f~x$'', all the while keeping
 track of any side effects that are produced.
 
-If our source language had an impure effect, for example built-in operations
-``$\textsf{\color{ACMDarkBlue}get}$'' and ``$\textsf{\color{ACMDarkBlue}put}$'' that manipulate a
-reference cell, we could fix $\textsf{M} = \textsf{State}$ and add translations
+If our source language had an impure effect, for example built-in operations \kw{get} and
+\kw{put} that manipulate a reference cell, we could fix $\textsf{M} = \textsf{State}$ and add
+translations
 \begin{align*}
-  \textsf{\color{ACMDarkBlue}get}^* &= [x \mid x \leftarrow \textsf{get}]^\textsf{State} \\
-  (\textsf{\color{ACMDarkBlue}put}~e)^* &= [u \mid x \leftarrow e^*;\ u \leftarrow \textsf{put}~x]^\textsf{State}
+  \kw{get}^* &= [x \mid x \leftarrow \textsf{get}]^\textsf{State} \\
+  (\kw{put}~e)^* &= [u \mid x \leftarrow e^*;\ u \leftarrow \textsf{put}~x]^\textsf{State}
 \end{align*}
 where \textsf{get} and \textsf{put} are defined as in Section \ref{sec:monad-examples}. The
 result of the translation no longer requires references and is potentially simpler to reason
@@ -1069,7 +1069,7 @@ presented by Danvy and Filinski!
   (\lambdaE{x}{e})^* &= [\lambdaE{x}{e^*}]^\textsf{Cont} &= \lambdaE{\kappa}{\kappa~(\lambdaE{x}{e^*})} \\
   (e_1~e_2)^* &= [y \mid f \leftarrow e_1^*;\ x \leftarrow e_2^*;\ y \leftarrow f~x]^\textsf{Cont} &= \lambdaE{\kappa}{e_1^*~(\lambdaE{f}{e_2^*~(\lambdaE{x}{f~x~\kappa})})} \\
   (e_1,\, e_2)^* &= [(x, y) \mid x \leftarrow e_1^*;\ y \leftarrow e_2^*]^\textsf{Cont} &= \lambdaE{\kappa}{e_1^*~(\lambdaE{x}{e_2^*~(\lambdaE{y}{\kappa (x,\, y)})})} \\
-  (\textsf{\color{ACMDarkBlue}fst}~e)^* &= [\textsf{\color{ACMDarkBlue}fst}~x \mid x \leftarrow e^*]^\textsf{Cont} &= \lambdaE{\kappa}{e^*~(\lambdaE{x}{\textsf{\color{ACMDarkBlue} fst}~x)}} \\
+  (\kw{fst}~e)^* &= [\kw{fst}~x \mid x \leftarrow e^*]^\textsf{Cont} &= \lambdaE{\kappa}{e^*~(\lambdaE{x}{\kw{fst}~x)}} \\
   (\shift{k}{e})^* &= \textsf{shift}~(\lambdaE{k}{e^*}) &= (\lambdaE{\kappa}{e^*~\textsf{id}})[k \mapsto \lambdaE{x}{\lambdaE{\kappa'}{\kappa'~(\kappa~x)}}] \\
   \reset{e}^* &= \textsf{reset}~e^* &= \lambdaE{\kappa}{\kappa~(e^*~\textsf{id})}
 \end{align*}
@@ -1081,8 +1081,8 @@ and two meta-circular interpreters) Wadler managed to find one more way of looki
 continuation semantics.
 
 (Of course, Wadler did not present exactly this result. He observed that the call-by-name
-translation results in the unusual call-by-name version of the CPS translation, but since shift
-and reset did not exist, he did not complete the ECPS picture. I am sure that the full
+translation results in the unusual call-by-name version of the CPS translation, but since \kw{shift}
+and \kw{reset} did not exist, he did not complete the ECPS picture. I am sure that the full
 ECPS--monad embedding is not novel, but I connected the dots independently.)
 
 \section{Conclusion} \label{sec:conclusion}
@@ -1095,8 +1095,8 @@ tools, and Strachey and Wadsworth were among the earliest to use
 continuations~\cite{strachey2000continuations}. Their goal was to give a semantics for
 \texttt{GOTO} statements. Modern work on delimited continuations is extremely diverse, ranging
 from automatic differentiation~\cite{wang2019demystifying} to logic
-programming~\cite{schrijvers2013delimited}. Hands-on exploration of shift and reset can be done
-in languages like Racket and Scheme.
+programming~\cite{schrijvers2013delimited}. Hands-on exploration of \kw{shift} and \kw{reset} can
+be done in languages like Racket and Scheme.
 
 Further reading on monads can be found throughout the functional programming literature.
 Languages like Haskell---which uses monads to isolate all effectful code---rely on monads in even
@@ -1107,9 +1107,9 @@ abstractions~\cite{xia2019interaction}.
 
 Finally, some modern ideas build on both delimited continuations and monads, most notably {\em
 algebraic effects}~\cite{bauer2015programming}. Algebraic effects define {\em effect operators}
-and {\em handlers}, which build on many of the ideas behind shift and reset. These abstractions
-also isloate programmatic effects in a style very similar to that of monads, and many think they
-can be replacement for monadic effects in some programming languages.
+and {\em handlers}, which build on many of the ideas behind \kw{shift} and \kw{reset}. These
+abstractions also isloate programmatic effects in a style very similar to that of monads, and
+many think they can be replacement for monadic effects in some programming languages.
 
 Delimited continuations and monads are both amazing ideas, and this report only scratches the
 surface. Still, I hope it is a helpful resource for those who want to learn more about the field
