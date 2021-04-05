@@ -129,10 +129,10 @@ programming languages community. These operators were first presented in {\em Ab
 Control} by \citet{danvy1990abstracting}, and they are one of the many tools used to manipulate
 program continuations.
 
-A {\em continuation} is a first-class representation of the context around a computation. For
-example, when evaluating the sub-expression ``$2$'' in the program
+A {\em continuation} is a first-class representation of the {\em context} around a computation.
+For example, when evaluating the sub-expression ``$2$'' in the program
 \[ \letIn{i}{84}{\letIn{j}{2}{i / j}}, \]
-we say the {\em context} is
+we say the context is
 \[ \letIn{i}{84}{\letIn{j}{\_}{i / j}}, \]
 and the continuation, $k$, is
 \[ k = \lambdaE{x}{\letIn{i}{84}{\letIn{j}{x}{i / j}}}. \]
