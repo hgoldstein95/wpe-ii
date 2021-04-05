@@ -115,14 +115,14 @@
 \maketitle
 
 \section{Introduction} \label{sec:introduction}
-Abstractions are one of the most powerful tools in a computer scientist's toolbox. They separate
+Abstractions are the most powerful tools in a computer scientist's toolbox. They separate
 high-level ideas from low-level details, highlighting the novel and interesting parts of a
 program. Sometimes a particular abstraction becomes so ingrained in a community that members
-naturally think in terms of the abstraction and use it without explanation. Broadly, I would
-argue that this is good---a powerful common language makes it easier to communicate ideas---but
-it does make it more difficult for outsiders and new researchers to understand a body of work.
-Occasionally we must take a step back and explain where these abstractions come from and how they
-work.
+naturally think in terms of the abstraction and use it without explanation. Broadly, this is
+good---a powerful common language makes it easier to communicate ideas---but it does make it more
+difficult for outsiders and new researchers to understand a body of work. This report sets out to
+explain a couple of these abstractions for researchers familiar with, but not steeped in, the
+programming languages literature.
 
 The notion of {\em delimited continuations} is one such abstraction that is ingrained in the
 programming languages community. These operators were first presented in {\em Abstracting
@@ -148,44 +148,46 @@ continuation from above:
 We replaced the expression $2$ with $\shift{k}{k~2}$, which says ``capture the context as $k$ and
 then apply that to $2$,'' and we wrapped the whole computation in \kw{reset} to delimit the
 context. The result is the same as the original expression, but the continuation is made
-explicit. In that example the \kw{shift} body just applies $k$, but it can do anything. In
-particular, if $k$ is not used at all
+explicit. In that example, the \kw{shift} body just applies $k$, but it can do anything. In
+particular, if $k$ is not used at all,
 \[ \reset{(\letIn{i}{84}{\letIn{j}{(\shift{k}{\textsf{Nothing}})}{i / j}})} \]
-the result is essentially an {\em exception}: the context is thrown away and the result of the
-entire computation is just \textsf{Nothing}. This flexibility makes delimited continuations
+the expression essentially throws an {\em exception}: the context is discarded and the result of
+the entire computation is just \textsf{Nothing}. This flexibility makes delimited continuations
 powerful but also notoriously difficult for newcomers to reason about.
 
 Another abstraction that is deeply embedded in programming languages literature is the {\em
-monad}. Monads are notorious being explained poorly, to the point where people jokingly quote ``a
-monad is just a monoid in the category of endofunctors''---a sentence which is incomprehensible
-even to most community insiders~\cite{iry_2009,mac2013categories}. The internet is filled with
-monad tutorials that compare the mathematical structure to burritos (tasty, but unhelpful) and
-other ``more accessible'' concepts, but few provide useful explanations. To avoid falling into
-this trap of explaining monads badly, I follow one of the earliest and clearest explanations of
-monads for programming, {\em Comprehending Monads} by \citet{wadler1990comprehending}.
+monad}. Monads are notorious for being explained poorly, to the point where people jokingly quote
+``a monad is just a monoid in the category of endofunctors''---a sentence which is
+incomprehensible even to most community insiders~\cite{iry_2009,mac2013categories}. The internet
+is filled with monad tutorials that compare the mathematical structure to burritos (tasty, but
+unhelpful) and other ``more accessible'' concepts, but few provide useful explanations. To avoid
+falling into this trap of explaining monads badly, I follow here one of the earliest and clearest
+explanations of monads for programming, {\em Comprehending Monads} by
+\citet{wadler1990comprehending}.
 
 Wadler presents monads using an analogy to list comprehensions like
 \[
   [ (x,\,y) \mid x \leftarrow [1,\, 2] ;\ y \leftarrow [3,\, 4] ],
 \]
 which evaluates to the Cartesian product of the lists ``$[1,\, 2]$'' and ``$[3,\, 4]$.'' Wadler
-observes that comprehension syntax can be used with more than just lists---in particular it can
-be used with any monad. For example,
+observes that comprehension syntax can be used with more than just lists---in fact it can be used
+with any monad. One of the simplest monads is, called \textsf{Maybe} is defined as
+\[ \textsf{data Maybe}~\alpha = \textsf{Nothing} \mid \textsf{Just}~\alpha \]
+in languages like Haskell. We can write a ``\textsf{Maybe} comprehension'' like,
 \[
   [ i / j \mid i \leftarrow [84]^{\textsf{Maybe}} ;\ j \leftarrow \ifThenElse{n = 0}{\textsf{Nothing}}{[n]^{\textsf{Maybe}}} ]^{\textsf{Maybe}}
 \]
-is a ``\textsf{Maybe} comprehension'' that uses the comprehension syntax with the \textsf{Maybe}
-monad to abstract over error handling. In the expression, we first bind $i$ to the value $84$.
-Then we check if $n$ is $0$: if it is, the whole expression results in \textsf{Nothing},
-otherwise we bind $j$ to $n$. Finally, if the computation has not failed, we compute $i / j$.
-Just as list comprehensions provide a way to sequence lists, \textsf{Maybe} comprehensions
-provide a way to sequence computations that might fail. There are dozens of monads that
-programmers use in practice, each of which gives a different interpretation of comprehension
-syntax.
+which uses comprehension syntax with the \textsf{Maybe} monad to abstract over {\em error
+handling}. In the expression, we first bind $i$ to the value $84$. Then we check if $n$ is $0$:
+if it is, the whole expression results in \textsf{Nothing}, otherwise we bind $j$ to $n$.
+Finally, if the computation has not failed, we compute $i / j$. Just as list comprehensions
+provide a way to sequence lists, \textsf{Maybe} comprehensions provide a way to sequence
+computations that might fail. There are dozens of monads that programmers use in practice, each
+of which gives a different interpretation of comprehension syntax.
 
 Both delimited continuations and monads are interesting on their own, but why present them
 together? It is not immediately clear that manipulating continuations has anything to do with
-interpreting comprehension syntax; one would be forgiven for assuming that these ideas are
+interpreting comprehension syntax; one could be forgiven for assuming that these ideas are
 largely orthogonal. But we have already seen that delimited continuations and monads can both be
 used to simulate exceptions, and it turns out that there is significantly more overlap. Design
 patterns like state, nondeterminism, and more can be implemented using both delimited
@@ -208,10 +210,10 @@ In this report I make three contributions:
 I conclude with references to further reading that builds on these abstractions
 (\S~\ref{sec:conclusion}).
 
-\subsection*{Unified Notation} \label{sec:notation}
-My source papers differ slightly in notation and conventions. I have chosen a reasonable
-middle-ground and use one unified set of conventions to discuss both papers. Throughout this
-report, assume that programs are written in a lambda calculus with syntax defined by:
+\subsection*{Notation} \label{sec:notation}
+My source papers differ slightly in notation and conventions. I have chosen a middle-ground and
+use one unified set of conventions to discuss both papers. Throughout this report, programs are
+written in a lambda calculus with syntax defined by:
 \begin{align*}
   e \Coloneqq &\ x \mid \lambdaE{x}{e} \mid e_1~e_2 \mid \letIn{x}{e_1}{e_2} \\
             | &\ \kw{true} \mid \kw{false} \mid \ifThenElse{e_1}{e_2}{e_3} \mid n \mid e_1 + e_2 \\
@@ -225,8 +227,11 @@ is implemented as
 \[ (\lambdaE{x}{e_2})~e_1, \]
 so I often ignore it in meta-theory. Danvy and Filinski use Booleans and natural numbers to
 illustrate delimited continuations; Wadler uses pairs and lightweight data structure definitions
-to illustrate monads---I use these features as needed. Since we are almost exclusively concerned
-with the dynamic semantics of these programs, I do not formalize a type system.
+to illustrate monads---I also use these features as needed. Since we are almost exclusively
+concerned with dynamic semantics, I do not formalize a type system.
+
+Built-in language operators are written in \kw{blue sans-serif} and defined functions are written
+in \textsf{black sans-serif}.
 
 \section{{\em Abstracting Control}} \label{sec:danvy}
 Before explaining delimited continuations, I should explain some background on continuations and
@@ -626,12 +631,12 @@ assume that we have case-statements in our language for destructuring these data
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
-    $\textsf{type List}$~$\alpha$ & $=$ & $\textsf{Nil} \mid \textsf{Cons}~\alpha~(\textsf{List}~\alpha)$ \\
+    $\textsf{data List}$~$\alpha$ & $=$ & $\textsf{Nil} \mid \textsf{Cons}~\alpha~(\textsf{List}~\alpha)$ \\
     $\map{List}{f}{\overline{x}}$ & $=$ & $\caseOf{\overline{x}}{\textsf{Nil} \to \textsf{Nil};\ \textsf{Cons}~y~\overline{y} \to \textsf{Cons}~(f~y)~(\map{List}{f}{\overline{y}})}$ \\
     $\unit{List}{x}$ & $=$ & $\textsf{singleton}~x$ \\
     $\join{List}{\doverline{x}}$ & $=$ & $\textsf{flatten}~\doverline{x}$ \\
     \\
-    $\textsf{type Maybe}$~$\alpha$ & $=$ & $\textsf{Nothing} \mid \textsf{Just}~\alpha$ \\
+    $\textsf{data Maybe}$~$\alpha$ & $=$ & $\textsf{Nothing} \mid \textsf{Just}~\alpha$ \\
     $\map{Maybe}{f}{\overline{x}}$ & $=$ & $\caseOf{\overline{x}}{\textsf{Nothing} \to \textsf{Nothing};\ \textsf{Just}~y \to \textsf{Just}~(f~y)}$ \\
     $\unit{Maybe}{x}$ & $=$ & $\textsf{Just}~x$ \\
     $\join{Maybe}{\doverline{x}}$ & $=$ & $\caseOf{\doverline{x}}{\textsf{Just}~(\textsf{Just}~x) \to \textsf{Just}~x;\ \_ \to \textsf{Nothing}}$
@@ -647,12 +652,12 @@ sequence computations that might fail (returning \textsf{Nothing}).
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
-    $\textsf{type Id}$~$\alpha$ & $=$ & $\alpha$ \\
+    $\textsf{data Id}$~$\alpha$ & $=$ & $\alpha$ \\
     $\map{Id}{f}{\overline{x}}$ & $=$ & $f~\overline{x}$ \\
     $\unit{Id}{x}$ & $=$ & $x$ \\
     $\join{Id}{\doverline{x}}$ & $=$ & $\doverline{x}$ \\
     \\
-    $\textsf{type Str}$~$\alpha$ & $=$ & $\alpha$ \\
+    $\textsf{data Str}$~$\alpha$ & $=$ & $\alpha$ \\
     $\map{Str}{f}{\overline{x}}$ & $=$ & $\ifThenElse{\overline{x} \neq \bot}{f~\overline{x}}{\bot}$ \\
     $\unit{Str}{x}$ & $=$ & $x$ \\
     $\join{Str}{\doverline{x}}$ & $=$ & $\doverline{x}$
@@ -685,7 +690,7 @@ language.
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
-    $\textsf{type State}$~$\alpha$ & $=$ & $\sigma \to (\alpha,\, \sigma)$ \\
+    $\textsf{data State}$~$\alpha$ & $=$ & $\sigma \to (\alpha,\, \sigma)$ \\
     $\map{State}{f}{\overline{x}}$ & $=$ & $\lambdaE{s}{\letIn{(x,\, s')}{\overline{x}~s}{(f~x,\, s')}}$ \\
     $\unit{State}{x}$ & $=$ & $\lambdaE{s}{(x,\, s)}$ \\
     $\join{State}{\doverline{x}}$ & $=$ & $\lambdaE{s}{\letIn{(\overline{x},\, s')}{\doverline{x}~s}{\overline{x}~s'}}$
@@ -738,7 +743,7 @@ the next, tracking the state as it evolves.
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
-    $\textsf{type Reader}$~$\alpha$ & $=$ & $\rho \to \alpha$ \\
+    $\textsf{data Reader}$~$\alpha$ & $=$ & $\rho \to \alpha$ \\
     $\map{Reader}{f}{\overline{x}}$ & $=$ & $\lambdaE{r}{f~(\overline{x}~r)}$ \\
     $\unit{Reader}{x}$ & $=$ & $\lambdaE{r}{x}$ \\
     $\join{Reader}{\doverline{x}}$ & $=$ & $\lambdaE{r}{(\doverline{x}~r)~r}$
@@ -763,7 +768,7 @@ functions and thus have a clearly delimited scope.
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
-    $\textsf{type ND}$~$\alpha$ & $=$ & $\mathcal{P}(\alpha)$ \\
+    $\textsf{data ND}$~$\alpha$ & $=$ & $\mathcal{P}(\alpha)$ \\
     $\map{ND}{f}{\overline{x}}$ & $=$ & $\{f~x \mid x \in \overline{x}\}$ \\
     $\unit{ND}{x}$ & $=$ & $\{x\}$ \\
     $\join{ND}{\doverline{x}}$ & $=$ & $\bigcup \doverline{x}$
@@ -791,7 +796,7 @@ programs can be written as if there is only one path.
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
-    $\textsf{type Parser}$~$\alpha$ & $=$ & $\textsf{String} \to \textsf{List}~(\alpha,\, \textsf{String})$ \\
+    $\textsf{data Parser}$~$\alpha$ & $=$ & $\textsf{String} \to \textsf{List}~(\alpha,\, \textsf{String})$ \\
     $\map{Parser}{f}{\overline{x}}$ & $=$ & $\lambdaE{i}{[(f~x,\, i') \mid (x,\, i') \leftarrow \overline{x}~i]^{\textsf{List}}}$ \\
     $\unit{Parser}{x}$ & $=$ & $\lambdaE{i}{[(x, i)]^{\textsf{List}}}$ \\
     $\join{Parser}{\doverline{x}}$ & $=$ & $\lambdaE{i}{[(x,\, i'') \mid (\overline{x},\, i') \leftarrow \doverline{x}~i;\ (x,\ i'') \leftarrow \overline{x}~i']^{\textsf{List}}}$
@@ -979,7 +984,7 @@ Towards the end of {\em Comprehending Monads}, Wadler presents the {\em continua
 Given a result type, $\rho$, the continuation monad is defined as:
 \begin{center}
   \begin{tabular}{lll}
-    $\textsf{type Cont}$~$\alpha$ & $=$ & $(\alpha \to \rho) \to \rho$ \\
+    $\textsf{data Cont}$~$\alpha$ & $=$ & $(\alpha \to \rho) \to \rho$ \\
     $\map{Cont}{f}{\overline{x}}$ & $=$ & $\lambdaE{\kappa}{\overline{x}~(\lambdaE{x}{\kappa~(f~x)})}$ \\
     $\unit{Cont}{x}$ & $=$ & $\lambdaE{\kappa}{\kappa~x}$ \\
     $\join{Cont}{\doverline{x}}$ & $=$ &
