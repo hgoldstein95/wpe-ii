@@ -298,3 +298,6 @@ __latexindent_temp.tex
 *.pdf
 
 .vscode
+
+talk/media
+**/__pycache__
