@@ -115,18 +115,18 @@
 
 \section{Introduction} \label{sec:introduction}
 Abstractions are one of the most powerful tools in a computer scientist's toolbox. They separate
-high-level ideas from low-level details, highlighting the novel and the interesting. Sometimes
-communities become so used to a particular abstraction that it becomes ingrained: members of the
-community naturally think in terms of the abstraction and therefore use it without explanation.
-Broadly, I would argue that this is good---a powerful common language makes it easier to
-communicate ideas---but it does make it more difficult for outsiders and new researchers to
-understand a body of work. Occasionally we must take a step back and explain where these
-abstractions come from and how they work.
+high-level ideas from low-level details, highlighting the novel and interesting parts of a
+program. Sometimes a particular abstraction becomes so ingrained in a community that members
+naturally think in terms of the abstraction and use it without explanation. Broadly, I would
+argue that this is good---a powerful common language makes it easier to communicate ideas---but
+it does make it more difficult for outsiders and new researchers to understand a body of work.
+Occasionally we must take a step back and explain where these abstractions come from and how they
+work.
 
-One such ingrained abstraction in the programming languages community is {\em delimited
-continuations}. These were presented in {\em Abstracting Control} by
-\citet{danvy1990abstracting}, and they are one of the many tools used to manipulate program
-continuations.
+The notion of {\em delimited continuations} is one such abstraction that is ingrained in the
+programming languages community. These operators were first presented in {\em Abstracting
+Control} by \citet{danvy1990abstracting}, and they are one of the many tools used to manipulate
+program continuations.
 
 A {\em continuation} is a first-class representation of the ``rest'' of a computation. For
 example, when evaluating the sub-expression ``$2$'' in the expression
@@ -168,7 +168,7 @@ Wadler presents monads using an analogy to list comprehensions like
   [ (x,\,y) \mid x \leftarrow [1,\, 2] ;\ y \leftarrow [3,\, 4] ],
 \]
 which evaluates to the Cartesian product of the lists ``$[1,\, 2]$'' and ``$[3,\, 4]$.'' Wadler
-observes that comprehension syntax can be used with more than just lists---in partiuclar it can
+observes that comprehension syntax can be used with more than just lists---in particular it can
 be used with any monad. For example,
 \[
   [ i / j \mid i \leftarrow [84]^{\textsf{Maybe}} ;\ j \leftarrow \ifThenElse{n = 0}{\textsf{Nothing}}{[n]^{\textsf{Maybe}}} ]^{\textsf{Maybe}}
@@ -365,21 +365,21 @@ right-hand side are part of a meta-language and represent mathematical objects r
 concrete syntax. Our continuations are embedded in the meta-theory.
 
 All of this is important for theoretical work on this language, but the syntactic ECPS
-transformation is more useful for concrete implementations. Next, we will return to the ECPS
+transformation is more useful for concrete implementations. Next, we return to the ECPS
 translation and explore ways that it can be made more efficient.
 
 \subsection{Metacircular Interpreters}
 A {\em metacircular interpreter} is a powerful tool for expressing a language's
-semantics~\cite{reynolds1972definitional}. In the case of our shift-reset language, our
-metacircular interpreter will look a lot like the ECPS translation, but it will do a bit more
-work by translating constructs an executable meta-language, rather than generating syntax
-directly. Danvy and Filinski use this approach to build a more efficient ECPS translation.
+semantics~\cite{reynolds1972definitional}. In the case of our shift-reset language, the
+metacircular interpreter looks a lot like the ECPS translation, but it does a bit more work by
+translating constructs an executable meta-language rather than generating syntax directly.
 
-For this interpreter, our meta-language is the same lambda calculus we have been working with,
+The meta-language for this interpreter, is the same lambda calculus we have been working with,
 but without shift or reset. We use a simple {\em quoting} mechanism to specify which parts of the
 output are executable code and which are concrete syntax. The code in black is the executable
 interpreter, while the $\quoteE{\text{quoted}}$ code is concrete syntax output. We use
-$\unquoteE{\text{unquote brackets}}$ to splice computations into quoted segments.
+$\unquoteE{\text{unquote brackets}}$ to splice computations into quoted segments. The translation
+is defined as:
 \begin{align*}
   \cpsm{x} &= \lambdaE{\kappa}{\kappa~x} \\
   \cpsm{\lambdaE{x}{e}} &=
@@ -390,17 +390,17 @@ $\unquoteE{\text{unquote brackets}}$ to splice computations into quoted segments
   \cpsm{\shift{k}{e}} &= (\lambdaE{\kappa}{\cpsm{e}~\textsf{id}})[k \mapsto \quoteE{\lambdaE{x}{\lambdaE{\kappa'}{\kappa'~\unquoteE{\kappa~\quoteE{x}}}}}] \\
   \cpsm{\reset{e}} &= \lambdaE{\kappa}{\kappa~(\cpsm{e}~\textsf{id})}
 \end{align*}
-The final ECPS result is given by ``$\cpsm{e}~\textsf{id}$.''
+and the final ECPS result is given by applying $\cpsm{e}$ to the identity function.
 
-Similar to the denotational semantics, the continuations are all meta-functions; there are no
+Like in to the denotational semantics, the continuations are all meta-functions; there are no
 $\kappa$s in the resulting programs. The difference is that the meta-functions are executed to
 produce concrete syntax, rather than interpreted as abstract functions. For example, the rule for
 if-statements will produce a concrete term of the form $\lambdaE{b}{\ifThenElse{\_}{\_}{\_}}$,
-rather than a mathematical function. Representing continuations at the meta-level drastically
+rather than a mathematical object. Representing continuations at the meta-level drastically
 reduces the size of the resulting programs---there are no unnecessary redexes in the output.
 
-It turns out that we can do even better if we include delimited continuation operators in our
-meta-language. This final ECPS translation, 
+It turns out that we can do even better if we include shift and reset in our meta-language. This
+final ECPS translation,
 \begin{align*}
   \cpsmc{x} &= x \\
   \cpsmc{\lambdaE{x}{e}} &= \quoteE{\lambdaE{\unquoteE{x}}{\lambdaE{\kappa}{\unquoteE{\reset{\quoteE{\kappa~\unquoteE{\cpsmc{e}}}}}}}} \\
@@ -414,19 +414,17 @@ also avoids unnecessary $\eta$-expansion (i.e., it always produces $f$ instead o
 $\lambdaE{x}{f~x}$), resulting in a pleasingly compact final representation.
 
 This final interpreter is essentially written in the same language that it interprets---this is
-why metacircular interpreters are called ``meta'' and it does pose a bootstrapping problem.
+why metacircular interpreters are called ``meta''---and that poses a bootstrapping problem.
 Luckily, we already have both the ECPS translation and our denotational semantics as descriptions
 of this meta-language. The efficient interpreter can be written in this meta-language and then
 that interpreter can itself be ECPS transformed into a standard lambda calculus.
 
 \subsection{Use Case: Nondeterministic Programming} \label{sec:danvy:nondet}
-These different ways of giving meaning to shift and reset are important, but often the best way
-to understand a concepts is to work with examples. We will look at a bunch of examples in Section
-\ref{sec:patterns}, but for now we will look at one that Danvy and Filinski mention:
-nondeterministic computations.
+We can understand this machinery better by examining a use-case for delimited continuations that
+Danvy and Filinski mention in their paper: nondeterministic computations.
 
-Danvy and Filinski start by defining operators \textsf{fail} and \textsf{flip}, which form the
-basis of nondeterministic computation:
+We start by defining operators \textsf{fail} and \textsf{flip}, which form the basis of
+nondeterministic computation:
 \begin{align*}
 \textsf{fail}~() &= \shift{k}{\stringE{failure}} \\
 \textsf{flip}~() &= \shift{k}{(k~\textsf{\color{ACMDarkBlue}true};\ k~\textsf{\color{ACMDarkBlue}false};\ \textsf{fail}~())}
@@ -434,7 +432,7 @@ basis of nondeterministic computation:
 We can think of \textsf{flip} as flipping a coin (with sides \textsf{\color{ACMDarkBlue}true} and
 \textsf{\color{ACMDarkBlue}false}) and \textsf{fail} as signaling a ``dead-end'' outcome.
 
-Concretely \textsf{fail} operation acts as an exception. It throws away the continuation and
+Concretely the \textsf{fail} operation acts as an exception. It throws away the continuation and
 returns the string $\stringE{failure}$. The \textsf{flip} operation calls its continuation on
 {\em both} \textsf{\color{ACMDarkBlue}true} and \textsf{\color{ACMDarkBlue}false}, which
 simulates a nondeterministic choice between the two options. This works because the result of the
@@ -465,37 +463,36 @@ expression
 prints all triples of integers up to $9$ that sum to $15$.
 
 The \textsf{triple} example is mostly a toy based on an early benchmark, but these primitives can
-be practically useful. In the paper, Danvy and Filinski show an evaluator for {\em
+be practically useful. In their paper, Danvy and Filinski show an evaluator for {\em
 nondeterministic finite automata} (NFAs), which is straightforward to implement thanks to
 operators like \textsf{flip} and \textsf{fail}. The implementation is not especially instructive,
-so I will not repeat it here.
+so I do not repeat it here.
 
-We will revisit delimited continuation operators to look at more examples in Section
-\ref{sec:patterns}, but for now I will take a break from continuations and introduce monads.
+We return to continuations later on, but for now we can take a break from continuations and look
+at monads.
 
 \section{{\em Comprehending Monads}} \label{sec:wadler}
-As mentioned in Section \ref{sec:introduction}, monads as popular as they are poorly understood.
-They were originally introduced to the programming languages literature by
+As mentioned in Section \ref{sec:introduction}, monads are as popular as they are poorly
+understood. They were originally introduced to the programming languages literature by
 \citet{moggi1991notions}, who was working in {\em category theory}. Luckily, monads can be
 understood without learning a new branch of mathematics, and {\em Comprehending Monads} by
 \citet{wadler1990comprehending} is a great place to start.
 
 A monad is essentially just a data structure (e.g., \textsf{List} or \textsf{Maybe}) with certain
 associated operations. First, a monad must have an operation \textsf{map} that applies a function
-``under'' the type constructor. For example,
+to the ``elements'' of the data structure. For example,
 \[ \map{List}{f}{\overline{x}} \]
 applies $f$ to all elements of $\overline{x}$ and 
 \[ \map{Maybe}{f}{\overline{x}} \]
 applies $f$ to the value contained in $\overline{x}$, if one exists. (I adopt Wadler's convention
-of writing monadic values---values wrapped in the monad's type constructor---with a bar over the
-variable name.) Map must obey two laws:
+of writing monadic values with a bar over the variable name.) Map must obey two laws:
 \begin{align*}
   \textsf{map}~\textsf{id} &= \textsf{id} \\
   \textsf{map}~(g \circ f) &= \textsf{map}~g \circ \textsf{map}~f
 \end{align*}
 The first law says that mapping the identity function over a structure does nothing---this is
 necessary to make sure that \textsf{map} does not change the structure itself, only the elements
-in the structure. The second law says that \textsf{map} is well behaved with respect to function
+in the structure. The second law says that \textsf{map} is well-behaved with respect to function
 composition.
 
 A data structure with a valid \textsf{map} operation is called a {\em functor}. In order for a
@@ -541,8 +538,8 @@ Law (4) says the same as (3) except we apply \textsf{unit} {\em under} the monad
 of flattening it to a single monad (e.g., $[1]$) is the same.
 
 Importantly, the monad laws require that \textsf{unit} and \textsf{join} are the {\em simplest}
-ways to do their respective tasks. For example, suppose we tried to implement
-\[ \unit{List}{x} = [x,\, x,\, x,\, x,\, x]. \]
+ways to do their respective tasks. For example, suppose we tried to define:
+\[ \unit{List}{x} = [x,\, x,\, x,\, x,\, x] \]
 Technically this does inject a value into a list, but it is not the simplest way to do so and
 \[
   (\textsf{join}^{\textsf{List}} \circ \textsf{unit}^{\textsf{List}})~[3] = [3,\, 3,\, 3,\, 3,\, 3] \neq \textsf{id}~[3]. \\
@@ -554,7 +551,7 @@ Wadler's use of {\em comprehensions} to make programming with monads much more i
 
 \subsection{Comprehensions}
 {\em Comprehending Monads} does more than just explain monads. As the name cleverly suggests, the
-paper develops a notation for monadic computations that is based on list comprehensions.
+paper develops a notation for monadic computations derived from list comprehensions.
 
 List comprehensions are based on set-builder notation (e.g. $\{n + 1 \mid n \in \mathbb{N}\}$)
 and were first introduced to programming by the SETL language in the
@@ -571,9 +568,9 @@ List comprehensions have the form $[e \mid q]$, where $q$ is called a {\em quali
 defined the syntax of qualifiers as:
 \[ q \Coloneqq \Lambda \mid x \leftarrow e \mid (q_1;\ q_2) \]
 Qualifiers can be empty (denoted $\Lambda$), a binder for a variable $x$, or a composition of two
-qualifiers. This notation can be a bit heavy, so Wadler usually ``$[e]$'' instead of ``$[e \mid
-\Lambda]$,'' and he proves that qualifier composition is associative so he can write ``$[e \mid
-q_1;\ q_2]$'' instead of $[e \mid (q_1;\ q_2)]$.
+qualifiers. This notation can be a bit heavy, so Wadler usually writes ``$[e]$'' instead of ``$[e
+\mid \Lambda]$,'' and he proves that qualifier composition is associative so he can write ``$[e
+\mid q_1;\ q_2]$'' instead of $[e \mid (q_1;\ q_2)]$.
 
 {\em Comprehending Monads} centers around the observation that lists are not the only structure
 for which comprehensions make sense. We can characterize behavior of list comprehensions with
@@ -583,26 +580,27 @@ following rules:
   [e_1 \mid x \leftarrow e_2] &= \textsf{map}~(\lambdaE{x}{e_1})~e_2 \\
   [e \mid (q_1;\ q_2)] &= \textsf{flatten}~[[e \mid q_2] \mid q_1]
 \end{align*}
-Since \textsf{singleton} is $\textsf{unit}^{\textsf{List}}$ and \textsf{flatten} is
-$\textsf{join}^{\textsf{List}}$, we can try to re-interpret comprehensions for any monad.
+Notice that \textsf{singleton} is $\textsf{unit}^{\textsf{List}}$ and \textsf{flatten} is
+$\textsf{join}^{\textsf{List}}$. Would using \textsf{unit} and \textsf{join} for other monads
+give a reasonable way to re-interpret comprehensions?
 
-Wadler defined a lambda calculus with {\em monad comprehension} syntax:
+Yes! Wadler defines a lambda calculus with generic {\em monad comprehension} syntax:
 \begin{align*}
  e &\Coloneqq \cdots \mid [e \mid q]^{\textsf{M}} \\
  q &\Coloneqq \Lambda \mid x \leftarrow e \mid (q_1;\ q_2)
 \end{align*}
-For any monad \textsf{M} the monad comprehension syntax is defined in terms of the following rules:
+For any monad \textsf{M} the monad comprehension behaves according to the following rules:
 \begin{align*}
   [e \mid \Lambda]^{\textsf{M}} &= \unit{M}{e} \\
   [e_1 \mid x \leftarrow e_2]^{\textsf{M}} &= \map{M}{(\lambdaE{x}{e_1})}{e_2} \\
   [e \mid (q_1;\ q_2)]^{\textsf{M}} &= \join{M}{[[e \mid q_2]^{\textsf{M}} \mid q_1]^{\textsf{M}}}
 \end{align*}
 The empty qualifier simply injects $e$ into the monad using \textsf{unit}. The binding qualifier
-defines a function: if $e_2$ produces some monadic value, the result of the comprehension is
+defines a function: $e_2$ produces some monadic value, and the result of the comprehension is
 $\lambdaE{x}{e_1}$ mapped over that value. Finally, qualifier composition translates to a nested
 comprehension which is flattened using \textsf{join}. Note that while Wadler opts to extend the
 language with comprehensions, they could instead be implemented as syntactic sugar---in other
-words, they can be implemented as surface syntax and omitted from the abstract syntax.
+words, they can be implemented as surface syntax and omitted from the formal language.
 
 Comprehensions can be used for computations like the \textsf{Maybe} comprehension from Section
 \ref{sec:introduction},
@@ -617,6 +615,10 @@ significant syntactic overhead.
 are important, the best way to understand monads is by example. Wadler presents a whole zoo of
 monads in his paper; exploring those structures provides valuable intuition for how monads work
 and what they can do.
+
+For each of these monads, I define the monad data structure (with a fairly standard syntax,
+similar to Haskell) and the three operations, \textsf{map}, \textsf{unit}, and \textsf{join}. I
+assume that we have case-statements in our language for destructuring these data structures.
 
 \subsubsection{List and Maybe} \label{sec:monad-examples:maybe} \hfill {\bf The Running Examples}
 \begin{center}
@@ -635,10 +637,6 @@ and what they can do.
   }
 \end{center}
 \medskip
-For each of these monads, I define the monad data structure (with a fairly standard syntax,
-similar to Haskell) and the three operations, \textsf{map}, \textsf{unit}, and \textsf{join}. I
-assume that we have case-statements in our language for destructuring these data structures.
-
 We have already seen the definitions for \textsf{List} and \textsf{Maybe}: the \textsf{List}
 monad coincides exactly with list comprehensions, and the \textsf{Maybe} monad can be used to
 sequence computations that might fail (returning \textsf{Nothing}).
@@ -660,28 +658,28 @@ sequence computations that might fail (returning \textsf{Nothing}).
   }
 \end{center}
 \medskip
-\textsf{List} and \textsf{Maybe} are relatively simple monads, but are a couple that are even
+\textsf{List} and \textsf{Maybe} are relatively simple monads, but there are a couple that are even
 simpler. The most basic monad is just an identity---it does nothing. This monad is almost not
 worth mentioning, but it does have one cute use-case: comprehension syntax for the identity monad
 can be used instead of \textsf{\color{ACMDarkBlue} let} binding. We can write
 \[ [e_3 \mid x \leftarrow e_1;\ y \leftarrow e_2]^{\textsf{Id}} \]
 instead of
-\[ \letIn{x}{e_1}{\letIn{y}{e_2}{e_3}} \]
+\[ \letIn{x}{e_1}{\letIn{y}{e_2}{e_3}}. \]
 There is no real reason to prefer this syntax, so I will continue to use
 $\textsf{\color{ACMDarkBlue} let}$, but it is a fun observation.
 
 A slight variation on the identity monad, the {\em strictness} monad, does actually have some
 interesting uses. Assuming a call-by-name base language, the strictness monad provides
 control over evaluation order by altering the definition of $\textsf{map}$ to force the
-evaluation of the argument $\overline{x}$.
+evaluation of the argument $\overline{x}$. The expression
 \[ [e_3 \mid x \leftarrow e_1;\ y \leftarrow e_2]^{\textsf{Str}} \]
 works like
 \[ \letIn{!x}{e_1}{\letIn{!y}{e_2}{e_3}} \]
 where $\letIn{!x}{e_1}{e_2}$ forces the evaluation of $e_1$ before assigning to $x$. \textsf{Str}
-comprehensions give access to call-by-value semantics as-needed, without changing the underlying
+comprehensions give access to call-by-value semantics as needed, without changing the underlying
 language.
 
-\subsubsection{State} \label{sec:monad-examples:state} \hfill {\bf Pure Imperative Programming}
+\subsubsection{State} \label{sec:monad-examples:state} \hfill {\bf Pure ``Imperative'' Programming}
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
@@ -693,18 +691,18 @@ language.
   }
 \end{center}
 \medskip
-The \textsf{State} monad makes enables code that {\em looks} stateful, even though there are no
-actual references under the hood. For the definition, I assume a fixed type $\sigma$ of states,
-and the type $\sigma \to (\alpha,\, \sigma)$ says that each stateful computation takes a state as
-input and produces a {\em result} of type $\alpha$ along with a new state.
+The \textsf{State} monad enables code that {\em looks} stateful, even though there are no actual
+references under the hood. Assuming a fixed type $\sigma$ of states, the type $\sigma \to
+(\alpha,\, \sigma)$ says that each stateful computation takes a state as input and produces a
+{\em result} of type $\alpha$ along with a new state.
 
-Since state is such an important and interesting monad, we should look at the operations in a bit
-of detail. As usual, \textsf{unit} is the simplest, simply injecting a value into a stateful
-computation; the state stays the same, and the result is the argument passed to \textsf{unit}.
-The \textsf{map} operation takes a computation, runs it, and then applies a function to the
-result value. Finally, \textsf{join} runs a computation which results in {\em another}
-computation and then it runs that computation to get a final result. These operations together
-mean that state comprehensions act like imperative code, with state handled implicitly.
+Since \textsf{State} is such an important and interesting monad, we should look at the operations
+in a bit of detail. As usual, \textsf{unit} is the simplest; it simply injects a value into a
+stateful computation. The state stays the same, and the result is the argument passed to
+\textsf{unit}. The \textsf{map} operation takes a computation, runs it, and then applies a
+function to the result value. Finally, \textsf{join} runs a computation which results in {\em
+another} computation, and then it runs that computation to get a final result. These operations
+together mean that state comprehensions act like imperative code, with state handled implicitly.
 
 As with many monads, interesting programs in the state-monad make use of some auxiliary
 operations:
@@ -759,7 +757,7 @@ any other static value that would otherwise be cumbersome to pass around explici
 also safer and more flexible than global variables or constants, since they are implemented as
 functions and thus have a clearly delimited scope.
 
-\subsubsection{Nondeterminism} \label{sec:monad-examples:nondet} \hfill {\bf The Set Monad}
+\subsubsection{Nondeterminism} \label{sec:monad-examples:nondet} \hfill {\bf The (Power) Set Monad}
 \begin{center}
   \framebox[\textwidth]{
   \begin{tabular}{lll}
@@ -773,8 +771,8 @@ functions and thus have a clearly delimited scope.
 \medskip
 The nondeterminism monad enables direct-style programming of nondeterministic algorithms, much
 like the \textsf{triple} example from Section \ref{sec:danvy:nondet}. A nondeterministic value is
-really a set of values, corresponding to each of the results that are possible outcomes of the
-nondeterministic computation. We define the same operators that we saw before:
+really a set of values, corresponding to each of the possible outcomes of a nondeterministic
+computation. We define the same operators that we saw before:
 \begin{center}
   \begin{tabular}{lll}
     $\textsf{fail}$ & $=$ & $\varnothing$ \\
@@ -802,26 +800,26 @@ programs can be written as if there is only one path.
 \medskip
 Finally, here is a more complicated monad: \textsf{Parser}. Parsers can be seen as a combination
 of two monads: \textsf{List} and \textsf{State}. Intuitively, the \textsf{String} argument is the
-parser input, and the result is a list of potential parses, each is made up of a result of type
-$\alpha$ and the \textsf{String} that remains after parsing.
+parser input, and the result is a list of potential parses, each of which is made up of a result
+of type $\alpha$ and the \textsf{String} that remains after parsing.
 
 There are a number of auxiliary operations that are useful for \textsf{Parser} (often called {\em
-parser combinators}), including ``\textsf{satisfy}'' which only parses a character that matches a
-given predicate and ``\textsf{many}'' which applies a parser multiple times. An amazing amount of
+parser combinators}), including ``\textsf{satisfy}'' which parses a character matching a given
+predicate and ``\textsf{many}'' which applies a parser multiple times. An amazing amount of
 research has been done on the \textsf{Parser} monad and parser
 combinators~\cite{hutton1996monadic, leijen2001parsec}, and it is still an active
 area~\cite{willis2020staged}.
 
 \subsection{Other Formulations of Monads}
-Before moving on, I want to quickly address some other formulations of monads that have become
-more popular since {\em Comprehending Monads} was published.
+Before moving on, I want to address some other formulations of monads that have become more
+popular since {\em Comprehending Monads} was published.
 
 A monad's \textsf{join} operation can be used to define special kind of function composition
 called {\em Kleisli composition}. Given a functor \textsf{F} and two functions $f: \beta \to
-\textsf{F}~\gamma$ and $g: \alpha \to \textsf{F}~\beta$, we can write
+\textsf{F}~\gamma$ and $g: \alpha \to \textsf{F}~\beta$, we can write a function
 \[ f \circ_\textsf{F} g = \textsf{join}^\textsf{F} \circ \textsf{map}^\textsf{F}~f
 \circ g \]
-that composes them together while properly keeping track of $\textsf{F}$. This is useful in
+that composes them together while properly keeping track of $\textsf{F}$. This is useful for
 programming because it means that monadic operations like $f$ and $g$ can be built up
 individually and composed together to build larger programs. A very similar construction can also
 yield the ``\textsf{bind}'' (or ``\textsf{>>=}'') definition of monads that is more common in
@@ -837,23 +835,21 @@ The distinctions between comprehension syntax and do--notation are mostly cosmet
 do--notation, programmers write ``$\unit{Maybe}{e}$'' (or more idiomatically
 ``$\textsf{return}~e$'') instead of $[e]^{\textsf{M}}$. Also rather than put a return value at
 the front of the comprehension, do--blocks evaluate to their final expression. For the remainder
-of this paper I will stick to comprehension syntax, but programming-focused monad examples
-usually use something closer to do--notation.
+of this paper I stick to comprehension syntax, but programming-focused monad examples usually use
+something closer to do--notation.
 
-For the remainder of my presentation I continue to use monad comprehension syntax, but these
-alternative notations and definitions are useful for further reading on monads. Next, we examine
-examples of monads that are defined using delimited continuations.
+Next, we examine examples of monads that are defined using delimited continuations.
 
 \section{Common Design Patterns} \label{sec:patterns}
-The monadic design patterns that Wadler are also a great showcase for delimited continuations. We
-have already seen delimited continuations implement exceptions (\textsf{Maybe}) and
-nondeterminism (\textsf{ND}), but it turns out that they can be used to implement all of the
+The monadic design patterns that Wadler presents are also a great showcase for delimited
+continuations. We have already seen delimited continuations implement exceptions (\textsf{Maybe})
+and nondeterminism (\textsf{ND}), but it turns out that they can be used to implement all of the
 monads from the previous section.
 
 This presentation was inspired by a blog post by \citet{xia_2019}, which shows how to implement a
 variety of monads using continuation-passing. Following Xia's definitions, I present each pattern
-by defining (1) the primitive operations that are core to the abstraction and (2) a \textsf{run}
-function that delimits the scope of the computation using reset.
+by defining (1) the primitive operations for the pattern and (2) a \textsf{run} function that
+delimits the scope of the computation using reset.
 
 \subsubsection{Maybe} \hfill {\bf See Section \ref{sec:monad-examples:maybe}}
 \begin{center}
@@ -904,11 +900,11 @@ non-strict). We do the same trick as before, forcing $e$ and then calling the co
 \medskip
 As with the state monad, encoding state with continuations is about capturing state in function
 parameters and return values. Our continuations take two parameters: the first is the computation
-value, and the second is the new state. The \textsf{get} operation takes in the current state and
-continues with that state as both the computation value and the new state. The \textsf{put}
-operation ignores the current state and continues with unit as the computation value and $s'$ as
-the new state. The \textsf{run} function takes an initial state and passes it in {\em outside}
-the continuation scope.
+result, and the second is the new state. The \textsf{get} operation takes in the current state
+and continues with that state as both the result and the new state. The \textsf{put} operation
+ignores the current state and continues with unit as the result and $s'$ as the new state. The
+\textsf{run} function takes an initial state and passes it in {\em outside} the continuation
+scope.
 
 As with the monadic version, these operations can be used to simulate stateful code. For example,
 this program, which is essentially the same program from Section \ref{sec:monad-examples:state},
@@ -922,6 +918,7 @@ this program, which is essentially the same program from Section \ref{sec:monad-
 returns 42 as expected. In this case the control flow is a bit more complicated, but the
 intuition is the same as for the monadic version.
 
+\pagebreak
 \subsubsection{Reader} \hfill {\bf See Section \ref{sec:monad-examples:reader}}
 \begin{center}
   \framebox[\textwidth]{
@@ -958,7 +955,7 @@ $\textsf{flip}$.
 A couple of Wadler's monad examples are missing here, but not for any fundamental reason.
 \textsf{List} can be implemented using delimited continuations without issues, but there are a
 number of subtly different ways to do it and the technicalities are not informative.
-\textsf{Parser}s can also be done using shift and reset but the construction is complex and,
+\textsf{Parser}s can also be done using shift and reset, but the construction is complex and,
 again, not informative. It would seem that anything that can be done with monads can also be done
 with delimited continuations.
 
@@ -970,7 +967,7 @@ constructions in Section \ref{sec:patterns} are ad-hoc and dependent on the part
 question, Filinski managed to give a translation that represents monadic patterns with
 continuations once-and-for-all. Still, the ad-hoc connections are valuable: they provide more
 granular intuition than Filinski's presentation, and they are all entirely pure, while Filinski's
-formulation relies on a reference cell.
+formulation relies on a single reference cell.
 
 \section{The Continuation Monad} \label{sec:contmonad}
 
@@ -989,10 +986,10 @@ Given a result type, $\rho$, the continuation monad is defined as:
       $\lambdaE{\kappa}{\doverline{x}~(\lambdaE{\overline{x}}{\overline{x}~\kappa})}$
   \end{tabular}
 \end{center}
-Intuitively, $\textsf{Cont}~\alpha$ is the type of computations that take a continuation
-expecting an input $\alpha$ and computing a result of a fixed type $\rho$. The \textsf{map}
-operation composes a function $f$ with the continuation, \textsf{unit} simply continues with a
-given value, and \textsf{join} untangles nested continuations to enable chained computations.
+$\textsf{Cont}~\alpha$ is a computation that take a continuation expecting an input $\alpha$ and
+producing a result of a fixed type $\rho$. The \textsf{map} operation composes a function $f$
+with the continuation, \textsf{unit} simply continues with a given value, and \textsf{join}
+untangles nested continuations to enable chained computations.
 
 If this seems complicated, it is, but it builds on the intuition we built up from {\em
 Abstracting Control}. Programs written using the continuation monad are automatically in a
@@ -1020,11 +1017,11 @@ same lambda calculus that we worked with in Section \ref{sec:wadler}.
 
 In particular, this means that we can use the \textsf{Cont} comprehension to write programs like
 \[
-  [x + y \mid x \leftarrow [1];\ y \leftarrow \textsf{reset}~[u + v \mid u \leftarrow [10];\ v \leftarrow \textsf{shift}(\lambdaE{k}{[b \mid a \leftarrow k~100;\ b \leftarrow k~a]})]]. \\
+  [x + y \mid x \leftarrow [1];\ y \leftarrow \textsf{reset}~[u + v \mid u \leftarrow [10];\ v \leftarrow \textsf{shift}(\lambdaE{k}{[b \mid a \leftarrow k~100;\ b \leftarrow k~a]})]],
 \]
 which is equivalent to the program
 \[ 1 + \reset{10 + \shift{k}{k~(k~100)}} \]
-that we saw when discussing {\em Abstracting Control}! The monad version is a bit more verbose,
+that we saw when discussing {\em Abstracting Control}. The monad version is a bit more verbose,
 but, critically, neither version relies on manually managing continuation parameters; they are
 both written in a ``direct'' style.
 
@@ -1033,10 +1030,10 @@ a monad! But we can actually take this one step further, using a monad embedding
 Wadler.
 
 \subsection{Recovering ECPS}
-Wadler presents a a translation ``$e^*$'' that lifts a program of type $\alpha \to \beta$ to one
-of type $\alpha \to \textsf{M}~\beta$ for some monad \textsf{M}. The translated function takes a
-value of type $\alpha$ and returns a {\em computation} of type $\beta$. The monad captures the
-effects of that computation. Here is the translation in full:
+Wadler presents a translation ``$e^*$'' that lifts a program of type $\alpha \to \beta$ to one
+of type $\alpha \to \textsf{M}~\beta$ for some monad \textsf{M}. The resulting function takes a
+value of type $\alpha$ and returns a {\em computation} of type $\beta$. The monad \textsf{M}
+captures the effects of that computation. Here is the translation in full:
 \begin{align*}
   x^* &= [x]^\textsf{M} \\
   (\lambdaE{x}{e})^* &= [\lambdaE{x}{e^*}]^\textsf{M} \\
@@ -1050,7 +1047,7 @@ says that in order to evaluate a (potentially effectful) application, we evaluat
 then evaluate $e_2$ to $x$, and then evaluate the application ``$f~x$'', all the while keeping
 track of any side effects that are produced.
 
-If our source language had an {\em effect}, for example built-in operations
+If our source language had an impure effect, for example built-in operations
 ``$\textsf{\color{ACMDarkBlue}get}$'' and ``$\textsf{\color{ACMDarkBlue}put}$'' that manipulate a
 reference cell, we could fix $\textsf{M} = \textsf{State}$ and add translations
 \begin{align*}
@@ -1058,15 +1055,16 @@ reference cell, we could fix $\textsf{M} = \textsf{State}$ and add translations
   (\textsf{\color{ACMDarkBlue}put}~e)^* &= [u \mid x \leftarrow e^*;\ u \leftarrow \textsf{put}~x]^\textsf{State}
 \end{align*}
 where \textsf{get} and \textsf{put} are defined as in Section \ref{sec:monad-examples}. The
-result of the translation no longer requires references, potentially making it simpler to reason
+result of the translation no longer requires references and is potentially simpler to reason
 about.
 
 We can apply this transformation to translate programs from Section \ref{sec:danvy} into programs
-from Section \ref{sec:wadler}, using target monad $\textsf{M} = \textsf{Cont}$. We add rules
-rules to translate turn ``$\shift{k}{e}$'' into ``$\textsf{shift}~(\lambdaE{k}{e})$'' and
+from Section \ref{sec:wadler}, using target monad $\textsf{M} = \textsf{Cont}$. We add
+rules to translate ``$\shift{k}{e}$'' into ``$\textsf{shift}~(\lambdaE{k}{e})$'' and
 ``$\reset{e}$'' into ``$\textsf{reset}~e$''. Shockingly, we obtain exactly the ECPS translation
 presented by Danvy and Filinski!
 \begin{align*}
+  &\phantom{=}\ \ \textbf{\textsf{Cont} Monad} & \textbf{ECPS} \\
   x^* &= [x]^\textsf{Cont} &= \lambdaE{\kappa}{\kappa~x} \\
   (\lambdaE{x}{e})^* &= [\lambdaE{x}{e^*}]^\textsf{Cont} &= \lambdaE{\kappa}{\kappa~(\lambdaE{x}{e^*})} \\
   (e_1~e_2)^* &= [y \mid f \leftarrow e_1^*;\ x \leftarrow e_2^*;\ y \leftarrow f~x]^\textsf{Cont} &= \lambdaE{\kappa}{e_1^*~(\lambdaE{f}{e_2^*~(\lambdaE{x}{f~x~\kappa})})} \\
@@ -1077,7 +1075,7 @@ presented by Danvy and Filinski!
 \end{align*}
 
 This is truly beautiful. It means that the continuation monad entirely captures the semantics of
-a language with first-class continuation operators. Even though Danvy and Filinski gave their
+a language with first-class continuation operators. Even though Danvy and Filinski give their
 language no fewer than four semantic interpretations (including ECPS, a denotational semantics,
 and two meta-circular interpreters) Wadler managed to find one more way of looking at
 continuation semantics.
@@ -1085,35 +1083,37 @@ continuation semantics.
 (Of course, Wadler did not present exactly this result. He observed that the call-by-name
 translation results in the unusual call-by-name version of the CPS translation, but since shift
 and reset did not exist, he did not complete the ECPS picture. I am sure that the full
-ECPS--monad embedding is not novel, but I completed the picture independently.)
+ECPS--monad embedding is not novel, but I connected the dots independently.)
 
 \section{Conclusion} \label{sec:conclusion}
-No single paper could fully explain either delimited continuations or monads completely, much
-less the two together. The goal of this report is simply to establish a foundation for further
-understanding.
+No single paper could fully explain either delimited continuations or monads, much less the two
+together. The goal of this report is simply to establish a foundation for further understanding.
 
 For more reading on delimited continuations (and continuations in general) look for work that
 deals with control flow. As previously mentioned, continuations were first used as meta-theoretic
-tools. Strachey and Wadsworth were among the earliest to use continuations---their goal was to
-give a semantics for \texttt{GOTO} statements~\cite{strachey2000continuations}. Modern work on
-delimited continuations is extremely diverse, ranging from automatic
-differentiation~\cite{wang2019demystifying} to logic programming~\cite{schrijvers2013delimited}.
-Hands-on exploration of shift and reset can be done in languages like Racket and Scheme.
+tools, and Strachey and Wadsworth were among the earliest to use
+continuations~\cite{strachey2000continuations}. Their goal was to give a semantics for
+\texttt{GOTO} statements. Modern work on delimited continuations is extremely diverse, ranging
+from automatic differentiation~\cite{wang2019demystifying} to logic
+programming~\cite{schrijvers2013delimited}. Hands-on exploration of shift and reset can be done
+in languages like Racket and Scheme.
 
-Further reading on monads can be found throughout functional programming research. Languages like
-Haskell---which uses monads to isolate all effectful code---rely on monads in even the simplest
-programs, and all research on those languages implicitly involves monads. More theoretical papers
-using monads often use them to embed effects in languages~\cite{paykin2017linearity} or to define
-other more complex abstractions~\cite{xia2019interaction}.
+Further reading on monads can be found throughout the functional programming literature.
+Languages like Haskell---which uses monads to isolate all effectful code---rely on monads in even
+the simplest programs, and all research on those languages implicitly involves monads. More
+theoretical papers using monads often use them to embed effects in
+languages~\cite{paykin2017linearity} or to define other more complex
+abstractions~\cite{xia2019interaction}.
 
 Finally, some modern ideas build on both delimited continuations and monads, most notably {\em
 algebraic effects}~\cite{bauer2015programming}. Algebraic effects define {\em effect operators}
 and {\em handlers}, which build on many of the ideas behind shift and reset. These abstractions
 also isloate programmatic effects in a style very similar to that of monads, and many think they
-can be replacement for monadic effects in programming languages.
+can be replacement for monadic effects in some programming languages.
 
-Ultimately, I hope this report helps to makes programming languages research more accessible.
-Programming languages is a beautiful field with beautiful abstractions.
+Delimited continuations and monads are both amazing ideas, and this report only scratches the
+surface. Still, I hope it is a helpful resource for those who want to learn more about the field
+of programming languages and need an introduction to some of its ingrained abstractions.
 
 \bibliography{references}
 \bibliographystyle{plainnat}
