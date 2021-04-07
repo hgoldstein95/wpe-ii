@@ -1,2 +1,0 @@
-- [ ] Make author citations consistent (I think err on the side of NO link?)
-- [ ] Make in-text colors consistent
